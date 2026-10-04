@@ -1,0 +1,53 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Database
+database.sqlite
+
+# Excel source files
+*.xlsx
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Secrets, runtime data and handover archives
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.token
+*.sql
+*.sqlite*
+*.tar
+*.tar.gz
+*.zip
+backups/
+public/products/
+output/
+.playwright-cli/
+.claude/
+
+pg_data/
+data/
+
+!server/migrations/*.sql

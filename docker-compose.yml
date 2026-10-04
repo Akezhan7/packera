@@ -1,0 +1,41 @@
+name: packera
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: packera_db
+    environment:
+      POSTGRES_DB: packera
+      POSTGRES_USER: packera
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - ${PACKERA_DATA_DIR:-/srv/pakera-data}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+  app:
+    image: ${APP_IMAGE:-packera:local}
+    build: .
+    container_name: packera_app
+    ports:
+      - "127.0.0.1:3031:3001"
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      TRUST_PROXY: "1"
+      DATABASE_URL: postgresql://packera:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/packera
+      CORS_ORIGIN: https://packera.kz,https://www.packera.kz,https://preview.packera.kz
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ${PACKERA_DATA_DIR:-/srv/pakera-data}/products:/app/public/products
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/data').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
+      retries: 3
+    restart: unless-stopped
