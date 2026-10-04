@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+deploy() {
 umask 077
 cd "$(dirname -- "${BASH_SOURCE[0]}")/.."
 test -f .env || { echo "Missing production .env"; exit 1; }
@@ -22,3 +23,5 @@ docker compose up -d --wait --wait-timeout 150
 awk -v image="$APP_IMAGE" '/^APP_IMAGE=/{print "APP_IMAGE=" image; next} {print}' .env > .env.next
 mv .env.next .env
 printf 'Deployed commit: %s\nPrevious image: %s\n' "$target" "$previous"
+}
+deploy "$@"
