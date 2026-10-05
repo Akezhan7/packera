@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import AdminUsers from './AdminUsers.vue';
 import AdminHistory from './AdminHistory.vue';
 import draggable from 'vuedraggable';
+import { compareTaskProducts, makeTaskSortOperations } from '../taskSorting.js';
 import { products, categories, tasks, banners, saveOperations, loadDatabase, databaseReady, databaseError, catalogLoading, checkPendingSave, icons, siteSettings, settingVersions } from '../data.js';
 import 'emoji-picker-element';
 import { currentUser, authNotice, requestApi, restoreAdmin, loginAdmin, logoutAdmin, changeAdminPassword, makeUpdateOperation, contentBusy, pendingContentSave } from '../adminApi.js';
@@ -225,6 +226,7 @@ const filteredProducts = computed(() => {
     const matchesTask = !filterTask.value || (p.tasks && p.tasks[filterTask.value] > 0);
     return matchesSearch && matchesCategory && matchesTask;
   }).sort((a, b) => {
+    if (sortMode.value === 'task') return compareTaskProducts(a,b,filterTask.value);
     const order = sortMode.value === 'category'
       ? (Number(a.categorySortOrder ?? a.sortOrder) || 0) - (Number(b.categorySortOrder ?? b.sortOrder) || 0)
       : (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0);
@@ -259,8 +261,7 @@ const taskLevel3Products = taskZone(3);
 const saveTaskZones = async () => {
   const zones = taskZoneDraft.value;
   if (!zones) return;
-  const operations = [];
-  for (const level of [1,2,3]) zones[level].forEach((p,index) => operations.push(makeUpdateOperation('products',p,{tasks:{...p.tasks,[filterTask.value]:level},sortOrder:index})));
+  const operations = makeTaskSortOperations(zones,filterTask.value);
   taskZoneDraft.value = null;
   await runAction(operations);
 };

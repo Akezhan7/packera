@@ -172,6 +172,7 @@ app.get('/api/data', async (req, res) => {
       ...p,
       images: parseJsonField(p.images, []),
       tasks: parseJsonField(p.tasks, {}),
+      taskSortOrders: parseJsonField(p.taskSortOrders, {}),
       sizes: parseJsonField(p.sizes, []),
       specs: parseJsonField(p.specs, {})
     }));

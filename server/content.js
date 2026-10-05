@@ -3,28 +3,30 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 const definitions = {
-  products: { table: 'products', key: 'id', fields: ['title','desc','price','unit','category','visual','color','image','images','tasks','sizes','specs','kaspiLink','halykLink','forteLink','sortOrder','categorySortOrder','isVisible'], defaults: { desc:'', price:0, unit:'шт', category:'', visual:'box', color:'', image:'', images:[], tasks:{}, sizes:[], specs:{}, kaspiLink:'', halykLink:'', forteLink:'', sortOrder:0, categorySortOrder:0, isVisible:true } },
+  products: { table: 'products', key: 'id', fields: ['title','desc','price','unit','category','visual','color','image','images','tasks','sizes','specs','kaspiLink','halykLink','forteLink','sortOrder','categorySortOrder','taskSortOrders','isVisible'], defaults: { desc:'', price:0, unit:'шт', category:'', visual:'box', color:'', image:'', images:[], tasks:{}, sizes:[], specs:{}, kaspiLink:'', halykLink:'', forteLink:'', sortOrder:0, categorySortOrder:0, taskSortOrders:{}, isVisible:true } },
   categories: { table: 'categories', key: 'id', fields: ['name','icon','sortOrder'], defaults: { icon:'', sortOrder:0 } },
   tasks: { table: 'tasks', key: 'id', fields: ['title','desc','titleKk','descKk','icon','image','sortOrder'], defaults: { desc:'', titleKk:'', descKk:'', icon:'box', image:'', sortOrder:0 } },
   banners: { table: 'banners', key: 'id', fields: ['image','isActive','sortOrder'], defaults: { isActive:true, sortOrder:0 } },
   settings: { table: 'site_settings', key: 'key', fields: ['value'], defaults: {} },
 };
-const jsonFields = new Set(['images','tasks','sizes','specs']);
+const jsonFields = new Set(['images','tasks','sizes','specs','taskSortOrders']);
 const error = (status, message, details = {}) => Object.assign(new Error(message), { status, ...details });
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const quote = field => `"${field}"`; // Called only for server-owned column names.
 const identifier = value => typeof value === 'string' && value.length > 0 && value.length <= 200;
 
 export async function migrateIntegrity(pool) {
-  const sql = await readFile(new URL('./migrations/002-integrity.sql', import.meta.url), 'utf8');
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(741902001)');
-    const exists = await client.query('SELECT version FROM schema_migrations WHERE version = $1', ['002-integrity']);
-    if (!exists.rowCount) {
-      await client.query(sql);
-      await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', ['002-integrity']);
+    for (const version of ['002-integrity','003-task-order']) {
+      const exists = await client.query('SELECT version FROM schema_migrations WHERE version = $1', [version]);
+      if (!exists.rowCount) {
+        const sql = await readFile(new URL(`./migrations/${version}.sql`, import.meta.url), 'utf8');
+        await client.query(sql);
+        await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', [version]);
+      }
     }
     await client.query('COMMIT');
   } catch (failure) { await client.query('ROLLBACK'); throw failure; }
@@ -59,6 +61,8 @@ function validateFields(entity, values) {
       if (!Array.isArray(value) || value.length > 1000 || value.some(image => typeof image !== 'string')) throw error(400, 'Некорректный массив изображений');
     } else if (field === 'tasks') {
       if (!object(value) || Object.entries(value).some(([id, level]) => !identifier(id) || ![1,2,3].includes(level))) throw error(400, 'Некорректные рекомендации');
+    } else if (field === 'taskSortOrders') {
+      if (!object(value) || Object.entries(value).some(([id,rank]) => !identifier(id) || !Number.isInteger(rank) || rank < -2147483648 || rank > 2147483647)) throw error(400, 'Некорректный порядок по задачам');
     } else if (field === 'specs') {
       if (!object(value) || Object.entries(value).some(([key, val]) => !identifier(key) || typeof val !== 'string')) throw error(400, 'Некорректные характеристики');
     } else if (field === 'sizes') {
@@ -130,7 +134,15 @@ async function mutate(client, actor, operation, changesList) {
   if (action === 'create' && before) throw error(409, 'Идентификатор уже существует', { code:'ALREADY_EXISTS', entity, id, current: before });
   if (action !== 'create' && !before) throw error(404, 'Объект удалён или отсутствует', { code:'NOT_FOUND', entity, id, current: null });
   if (action !== 'create' && before.version !== version) throw error(409, 'Объект изменён другим пользователем', { code:'VERSION_CONFLICT', entity, id, current: before });
-  const values = action === 'create' ? operation.data : operation.changes;
+  const values = action === 'create' ? { ...operation.data } : { ...operation.changes };
+  if (entity === 'products' && action !== 'delete') {
+    const memberships = values.tasks ?? before?.tasks ?? {};
+    const supplied = values.taskSortOrders ?? {};
+    if (Object.keys(supplied).some(id => !Object.hasOwn(memberships,id))) throw error(400,'Порядок указан для невыбранной задачи');
+    values.taskSortOrders = Object.fromEntries(Object.keys(memberships).map(id => [id,
+      (Object.hasOwn(supplied,id) ? supplied[id] : undefined) ?? (before && Object.hasOwn(before.taskSortOrders,id) ? before.taskSortOrders[id] : undefined) ?? values.sortOrder ?? before?.sortOrder ?? 0
+    ]));
+  }
   if (action !== 'delete') await checkReferences(client, entity, values);
   let result;
   if (action === 'create') {
@@ -174,6 +186,9 @@ export function createContentRouter(pool, auth) {
   async function execute(req,res,operations,batch) {
     if (!Array.isArray(operations) || !operations.length || operations.length > 2000) throw error(400,'Требуется от 1 до 2000 операций');
     const prepared = operations.map(prepare);
+    if (batch && prepared.some(op => op.entity === 'products' && op.action === 'update' && Object.hasOwn(op.changes,'sortOrder') && !Object.hasOwn(op.changes,'taskSortOrders'))) {
+      throw error(400,'Админка обновлена. Перезагрузите страницу перед сортировкой по задачам.',{code:'CLIENT_UPDATE_REQUIRED'});
+    }
     const ids = prepared.map(op => `${op.entity}:${op.id}`);
     if (new Set(ids).size !== ids.length) throw error(400,'Объект повторяется в операции');
     const client = await pool.connect();

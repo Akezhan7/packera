@@ -66,7 +66,7 @@ export async function changeAdminPassword(currentPassword, newPassword) {
 export const contentBusy = ref(false);
 export const pendingContentSave = ref(null);
 const contentFields = {
-  products: ['title','desc','price','unit','category','visual','color','image','images','tasks','sizes','specs','kaspiLink','halykLink','forteLink','sortOrder','categorySortOrder','isVisible'],
+  products: ['title','desc','price','unit','category','visual','color','image','images','tasks','sizes','specs','kaspiLink','halykLink','forteLink','sortOrder','categorySortOrder','taskSortOrders','isVisible'],
   categories: ['name','icon','sortOrder'],
   tasks: ['title','desc','titleKk','descKk','icon','image','sortOrder'],
   banners: ['image','isActive','sortOrder'],
@@ -85,6 +85,10 @@ export function makeUpdateOperation(entity, original, draft, baseline = original
   const changes = {};
   for(const field of contentFields[entity]) {
     if(Object.hasOwn(draft,field) && !same(draft[field],baseline[field])) changes[field]=clone(draft[field]);
+  }
+  if (entity === 'products' && Object.hasOwn(changes,'sortOrder') && !Object.hasOwn(changes,'taskSortOrders') && Object.hasOwn(original,'taskSortOrders')) {
+    const memberships = changes.tasks ?? original.tasks ?? {};
+    changes.taskSortOrders = Object.fromEntries(Object.keys(memberships).map(id => [id, Object.hasOwn(original.taskSortOrders,id) ? original.taskSortOrders[id] : changes.sortOrder]));
   }
   return Object.keys(changes).length ? {entity,action:'update',id:original.id ?? original.key,version:original.version,changes} : null;
 }

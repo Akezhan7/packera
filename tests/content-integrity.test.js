@@ -164,8 +164,8 @@ describe('Addressed content writes and concurrency', { concurrency: false }, () 
     const x = await create('x',{desc:'Keep'}); assert.equal(x.status,201);
     const y = await create('y'); assert.equal(y.status,201);
     assert.equal((await call('/api/content/batch','POST',{operations:[
-      {entity:'products',action:'update',id:'x',version:x.body.data.version,changes:{sortOrder:2}},
-      {entity:'products',action:'update',id:'y',version:y.body.data.version,changes:{sortOrder:1}},
+      {entity:'products',action:'update',id:'x',version:x.body.data.version,changes:{categorySortOrder:2}},
+      {entity:'products',action:'update',id:'y',version:y.body.data.version,changes:{categorySortOrder:1}},
     ]})).status,200);
     assert.equal((await server.readProduct('x')).desc,'Keep');
     const result = await call('/api/audit?actor=' + actor.id + '&from=2020-01-01&to=2100-01-01&limit=2&offset=2','GET');
@@ -194,4 +194,50 @@ describe('Addressed content writes and concurrency', { concurrency: false }, () 
     const audit = await server.query("SELECT actor_id FROM audit_log WHERE action='update' ORDER BY id DESC LIMIT 1");
     assert.equal(audit.rows[0].actor_id,row.updated_by);
   });
+  test('task orders are independent, audited, persistent and protected by versions', async () => {
+    for (const id of ['repair','cleaning']) assert.equal((await call('/api/tasks','POST',{id,title:id})).status,201);
+    const x = await create('x',{tasks:{repair:1,cleaning:1},sortOrder:4,categorySortOrder:9,images:['keep.jpg']});
+    assert.equal(x.status,201);
+    assert.deepEqual(x.body.data.taskSortOrders,{repair:4,cleaning:4});
+    const first = await update('x',x.body.data.version,{taskSortOrders:{repair:1,cleaning:4}});
+    assert.equal(first.status,200);
+    const second = await update('x',first.body.data.version,{taskSortOrders:{repair:1,cleaning:2}});
+    assert.equal(second.status,200);
+    assert.equal((await update('x',first.body.data.version,{taskSortOrders:{repair:9,cleaning:4}})).status,409);
+    await server.restart();
+    const row=(await server.request('/api/data')).body.products.find(p=>p.id==='x');
+    assert.deepEqual(row.taskSortOrders,{repair:1,cleaning:2});
+    assert.equal(row.sortOrder,4); assert.equal(row.categorySortOrder,9); assert.deepEqual(row.images,['keep.jpg']);
+    const audit=(await call('/api/audit?entity=products&id=x&limit=1','GET')).body.items[0];
+    assert.deepEqual(audit.changes.taskSortOrders,{before:{repair:1,cleaning:4},after:{repair:1,cleaning:2}});
+    const task=(await server.request('/api/data')).body.tasks.find(t=>t.id==='repair');
+    assert.equal((await call('/api/tasks/repair','DELETE',{version:task.version})).status,200);
+    assert.deepEqual((await server.request('/api/data')).body.products[0].taskSortOrders,{cleaning:2});
+  });
+  test('task order validates membership and integer ranks', async () => {
+    assert.equal((await call('/api/tasks','POST',{id:'move',title:'Move'})).status,201);
+    const x=await create('x',{tasks:{move:1}});
+    for(const taskSortOrders of [{move:1.5},{missing:2},[],{move:'2'}]) {
+      assert.equal((await update('x',x.body.data.version,{taskSortOrders})).status,400);
+    }
+  });
+
+  test('old open admin cannot report a successful shared task sort', async () => {
+    assert.equal((await call('/api/tasks','POST',{id:'move',title:'Move'})).status,201);
+    const x=await create('x',{tasks:{move:1},sortOrder:3});
+    const result=await call('/api/content/batch','POST',{operations:[{entity:'products',action:'update',id:'x',version:x.body.data.version,changes:{sortOrder:0}}]});
+    assert.equal(result.status,400);assert.equal(result.body.code,'CLIENT_UPDATE_REQUIRED');
+    assert.equal((await server.readProduct('x')).sortOrder,3);
+    const changed=await update('x',x.body.data.version,{sortOrder:9});
+    assert.equal(changed.status,200);assert.deepEqual(changed.body.data.taskSortOrders,{move:3});
+  });
+
+  test('task ID constructor preserves its numeric rank on ordinary edits', async () => {
+    assert.equal((await call('/api/tasks','POST',{id:'constructor',title:'Constructor'})).status,201);
+    const x=await create('x',{tasks:{constructor:1},sortOrder:6});
+    assert.deepEqual(x.body.data.taskSortOrders,{constructor:6});
+    const updated=await update('x',x.body.data.version,{desc:'Keep order'});
+    assert.equal(updated.status,200);assert.deepEqual(updated.body.data.taskSortOrders,{constructor:6});
+  });
+
 });

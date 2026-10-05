@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
+import { compareTaskProducts } from '../taskSorting.js';
 import { tasks, products, icons, t, translateTask } from '../data.js';
 
 const props = defineProps({
@@ -76,7 +77,7 @@ const handleScroll = (productId, event) => {
 const filteredProducts = computed(() => {
   return products.filter(
     (product) => product.tasks && product.tasks[activeTaskId.value] === activeLevel.value && product.isVisible !== false
-  ).sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0) || String(a.id).localeCompare(String(b.id)));
+  ).sort((a,b) => compareTaskProducts(a,b,activeTaskId.value));
 });
 
 const handleTaskSelect = (id) => {

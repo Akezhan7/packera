@@ -94,3 +94,17 @@ test('reconciliation reads bypass HTTP cache', async () => {
   };
   assert.equal((await api.saveContentOperations([update()])).reconciled,true);
 });
+
+
+test('lost product save response reconciles a newly assigned task and global rank change', async () => {
+  const original={id:'p',version:3,sortOrder:4,tasks:{move:1},taskSortOrders:{move:5}};
+  const draft={sortOrder:8,tasks:{move:1,repair:2}};
+  const operation=api.makeUpdateOperation('products',original,draft);
+  let calls=0;
+  globalThis.fetch=async()=>{
+    if(calls++===0)throw new Error('Response lost after commit');
+    return Response.json(snapshot({...original,...draft,version:9,taskSortOrders:{move:5,repair:8}}));
+  };
+  const result=await api.saveContentOperations([operation]);
+  assert.equal(result.outcome,'confirmed');assert.equal(calls,2);
+});
