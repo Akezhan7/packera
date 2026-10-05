@@ -17,7 +17,7 @@ COPY package.json server.js ./
 COPY server ./server
 COPY scripts ./scripts
 COPY public ./public
-RUN mkdir -p /app/public/products && chown node:node /app/public/products
+RUN mkdir -p /app/public/products && chown node:node /app/public/products && chmod -R a+rX /app
 USER node
 EXPOSE 3001
 CMD ["node", "server.js"]

@@ -3,7 +3,7 @@ import {ref,onMounted,onUnmounted} from 'vue';
 import {requestApi} from '../adminApi.js';
 const entities={products:'Товары',categories:'Категории',tasks:'Задачи',banners:'Баннеры',settings:'Настройки',users:'Аккаунты'};
 const actions={create:'Создание',update:'Изменение',delete:'Удаление'};
-const fieldNames={login:'Логин',name:'Имя',role:'Роль',isActive:'Активность',mustChangePassword:'Обязательная смена пароля',passwordReset:'Сброс пароля',passwordChanged:'Смена пароля',title:'Название',desc:'Описание',price:'Цена',image:'Изображение',images:'Фотографии',category:'Категория',value:'Значение'};
+const fieldNames={login:'Логин',name:'Имя',role:'Роль',isActive:'Активность',mustChangePassword:'Обязательная смена пароля',passwordReset:'Сброс пароля',passwordChanged:'Смена пароля',title:'Название',desc:'Описание',price:'Цена',taskSortOrders:'Порядок по задачам',image:'Изображение',images:'Фотографии',category:'Категория',value:'Значение'};
 const filters=ref({entity:'',id:'',actor:'',from:'',to:''});
 const users=ref([]),items=ref([]),total=ref(0),offset=ref(0),busy=ref(false),error=ref(''),limit=ref(20);
 let applied={},sequence=0;
