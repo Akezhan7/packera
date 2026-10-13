@@ -228,7 +228,7 @@ app.post('/api/upload', (req, res) => {
 });
 
 // Serve static products files from local folder first
-app.use('/products', createImageThumbnailsRouter(join(__dirname, 'public/products')));
+app.use('/products', createImageThumbnailsRouter(join(__dirname, 'public/products'),join(__dirname,'public')));
 app.use('/products', express.static(join(__dirname, 'public/products'), {
   maxAge: '1d', dotfiles: 'deny',
   setHeaders(res, path) {
@@ -244,6 +244,7 @@ app.use(express.static(distPath, {
   maxAge: '1d',
   setHeaders(res, path) {
     if (path.endsWith('index.html')) res.set('Cache-Control', 'no-cache');
+    if (/[/\\]fonts[/\\][a-f0-9]{20}\.woff2$/.test(path)) res.set('Cache-Control','public, max-age=31536000, immutable');
   },
 }));
 

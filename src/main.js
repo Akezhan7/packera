@@ -1,4 +1,5 @@
 import { createApp, createSSRApp } from 'vue'
+import './fonts.css'
 import './style.css'
 import App from './App.vue'
 import * as data from './data.js'
