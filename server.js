@@ -6,21 +6,20 @@ import { dirname, join, sep, resolve } from 'path';
 import fs from 'fs';
 import { createAuth } from './server/auth.js';
 import { createUsersRouter } from './server/users.js';
+import { createImageThumbnailsRouter } from './server/imageThumbnails.js';
+import { seoHeaders, createPublicPagesRouter } from './server/seo.js';
+import { readCatalog } from './server/catalog.js';
 import { migrateIntegrity, createContentRouter } from './server/content.js';
 
 const { Pool } = pg;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const parseJsonField = (value, fallback) => {
-  if (value == null || value === '') return fallback;
-  if (typeof value !== 'string') return value;
-  try { return JSON.parse(value); } catch { return fallback; }
-};
 
 const app = express();
 // Enable only when the origin is private and every external request crosses one trusted proxy.
 if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
+app.use(seoHeaders);
 
 // CORS: allow specific origins in production, all in development
 const allowedOrigins = process.env.CORS_ORIGIN
@@ -160,40 +159,11 @@ app.use('/api', createUsersRouter(pool, auth));
 // Get all data
 app.get('/api/data', async (req, res) => {
   res.set('Cache-Control','no-store');
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-    const catRes = await client.query('SELECT * FROM categories ORDER BY "sortOrder" ASC, name ASC');
-    const taskRes = await client.query('SELECT * FROM tasks ORDER BY "sortOrder" ASC');
-    const bannerRes = await client.query('SELECT * FROM banners ORDER BY "sortOrder" ASC');
-    const prodRes = await client.query("SELECT * FROM products");
-
-    const parsedProducts = prodRes.rows.map(p => ({
-      ...p,
-      images: parseJsonField(p.images, []),
-      tasks: parseJsonField(p.tasks, {}),
-      taskSortOrders: parseJsonField(p.taskSortOrders, {}),
-      sizes: parseJsonField(p.sizes, []),
-      specs: parseJsonField(p.specs, {})
-    }));
-
-    const settingsRes = await client.query("SELECT key, value, version FROM site_settings");
-    const siteSettings = {};
-    settingsRes.rows.forEach(r => { siteSettings[r.key] = r.value === 'true' ? true : r.value === 'false' ? false : r.value; });
-
-    await client.query('COMMIT');
-    res.json({
-      categories: catRes.rows.map(c => ({ ...c, icon: c.icon || '', sortOrder: c.sortOrder || 0 })),
-      products: parsedProducts,
-      tasks: taskRes.rows,
-      banners: bannerRes.rows,
-      siteSettings,
-      settingVersions: Object.fromEntries(settingsRes.rows.map(r => [r.key, r.version]))
-    });
+    res.json(await readCatalog(pool));
   } catch (err) {
-    await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
-  } finally { client.release(); }
+  }
 });
 
 // Full snapshots and reset cannot bypass addressed/versioned writes.
@@ -258,21 +228,30 @@ app.post('/api/upload', (req, res) => {
 });
 
 // Serve static products files from local folder first
-app.use('/products', express.static(join(__dirname, 'public/products')));
+app.use('/products', createImageThumbnailsRouter(join(__dirname, 'public/products')));
+app.use('/products', express.static(join(__dirname, 'public/products'), {
+  maxAge: '1d', dotfiles: 'deny',
+  setHeaders(res, path) {
+    if (/[/\\]upload_[a-z0-9]+_\d+\.(?:jpe?g|png|svg)$/i.test(path)) res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  },
+}));
 
 // Serve static files from Vue dist folder if it exists
 const distPath = join(__dirname, 'dist');
-app.use(express.static(distPath));
+app.use('/assets', express.static(join(distPath, 'assets'), { maxAge: '1y', immutable: true }));
+app.use(express.static(distPath, {
+  index:false,
+  maxAge: '1d',
+  setHeaders(res, path) {
+    if (path.endsWith('index.html')) res.set('Cache-Control', 'no-cache');
+  },
+}));
 
-// Fallback all other routes to index.html for SPA router (except api routes which are defined above)
-app.get(/.*/, (req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
-  res.sendFile(join(distPath, 'index.html'), (err) => {
-    if (err) {
-      res.status(404).send('Not Found');
-    }
-  });
-});
+// Only existing public pages are valid; missing files and unknown paths remain 404.
+app.use(createPublicPagesRouter(distPath, () => readCatalog(pool), async (...args) => {
+  const { render } = await import('./dist-ssr/entry-server.js');
+  return render(...args);
+}));
 
 app.use((err, req, res, next) => {
   if (err.type === 'entity.too.large') {

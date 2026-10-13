@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import { bannerFields } from '../shared/marketing.js';
 
 const API_BASE = import.meta.env?.VITE_API_URL || '';
 export const currentUser = ref(null);
@@ -68,8 +69,8 @@ export const pendingContentSave = ref(null);
 const contentFields = {
   products: ['title','desc','price','unit','category','visual','color','image','images','tasks','sizes','specs','kaspiLink','halykLink','forteLink','sortOrder','categorySortOrder','taskSortOrders','isVisible'],
   categories: ['name','icon','sortOrder'],
-  tasks: ['title','desc','titleKk','descKk','icon','image','sortOrder'],
-  banners: ['image','isActive','sortOrder'],
+  tasks: ['title','desc','titleKk','descKk','icon','image','desktopImage','mobileImage','sortOrder'],
+  banners: bannerFields,
   settings: ['value'],
 };
 const clone = value => JSON.parse(JSON.stringify(value));

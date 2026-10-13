@@ -3,8 +3,12 @@ import { requestApi, saveContentOperations, resolvePendingContentSave } from './
 
 // Packerra.kz Upgraded Product & Task Data for Vue (ESM)
 
-export const PHONE = "77779440077";
-export const FORMATTED_PHONE = "+7 777 944 00 77";
+import { PHONE, FORMATTED_PHONE, STORE_ADDRESS, DELIVERY_DESCRIPTION } from '../shared/storeContacts.js';
+import { parsePublicRoute } from '../shared/publicRoutes.js';
+export { PHONE, FORMATTED_PHONE };
+const storeAddressRu = `${STORE_ADDRESS.addressLocality}, ${STORE_ADDRESS.streetAddress}`;
+const storeAddressKk = 'Алматы, Ратушного көшесі, 78в';
+const workDays = {ru:'Вторник — воскресенье',kk:'Сейсенбі — жексенбі'};
 
 export const commonsImage = (file, width = 640) =>
   `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(file)}?width=${width}`;
@@ -1484,6 +1488,7 @@ export const databaseError = ref('');
 export const catalogLoading = ref(false);
 let catalogLoadSequence = 0;
 export const settingVersions = reactive({});
+export const hydrationState = typeof document === 'undefined' ? null : JSON.parse(document.getElementById('packera-state')?.textContent || 'null');
 
 export function acceptCatalog(data) {
   if (!['products','categories','tasks','banners'].every(key => Array.isArray(data[key])) || !data.siteSettings || !data.settingVersions) throw new Error('Неполный ответ каталога');
@@ -1520,8 +1525,6 @@ export const loadDatabase = async ({ allowFallback = false } = {}) => {
   } finally { if (sequence === catalogLoadSequence) catalogLoading.value = false; }
 };
 
-// Public storefront may show its existing fallback; admin writes require a fresh server catalog.
-loadDatabase({ allowFallback: true });
 
 export function applyContentResult(result) {
   if (result.snapshot) { acceptCatalog(result.snapshot); return; }
@@ -1553,16 +1556,33 @@ export async function checkPendingSave() {
   return result;
 }
 
-export const currentLang = ref(localStorage.getItem('packerra_lang') || 'ru');
+export const currentLang = ref(hydrationState ? parsePublicRoute(hydrationState.url).lang || 'ru' : typeof localStorage === 'undefined' ? 'ru' : localStorage.getItem('packerra_lang') || 'ru');
 
 export const setLang = (lang) => {
   currentLang.value = lang;
-  localStorage.setItem('packerra_lang', lang);
+  if (typeof localStorage !== 'undefined') localStorage.setItem('packerra_lang', lang);
 };
 
 export const translations = {
   ru: {
-    dailyWork: "ежедневно 9:00 - 21:00",
+    homePage: 'Главная',
+    pageNavigation: 'Навигация по страницам',
+    pageNotFound: 'Страница не найдена',
+    catalogUnavailable: 'Не удалось загрузить каталог. Попробуйте ещё раз.',
+    retryLoading: 'Повторить загрузку',
+    promotions: 'Акции и новинки',
+    promotion: 'Баннер',
+    previousBanner: 'Предыдущий баннер',
+    nextBanner: 'Следующий баннер',
+    pauseBanners: 'Остановить смену баннеров',
+    playBanners: 'Включить смену баннеров',
+    destinationUnavailable: 'Этот раздел сейчас недоступен.',
+    close: 'Закрыть',
+    previousImage: 'Предыдущее изображение',
+    nextImage: 'Следующее изображение',
+    noPhotos: 'Фотографии пока не добавлены',
+    image: 'Изображение',
+    dailyWork: workDays.ru,
     cart: "Корзина",
     heroTitleText: "Всё для переезда, ремонта и упаковки",
     heroTitleSpan: "в одном месте",
@@ -1593,7 +1613,7 @@ export const translations = {
     installment: "Рассрочка",
     delete: "Удалить",
     total: "Итого",
-    freeShippingLeft: "До бесплатной доставки осталось",
+    freeShippingLeft: "До бесплатной доставки по Алматы осталось",
     freeShippingSuccess: "🎉 Поздравляем! Доставка по Алматы за наш счет!",
     checkoutBtn: "Оформить заказ",
     waOrderHello: "Здравствуйте! Хочу оформить заказ:",
@@ -1609,27 +1629,46 @@ export const translations = {
     close: "Закрыть",
     contacts: "Контакты",
     addressLabel: "Адрес склада:",
-    addressVal: "г. Алматы, ул. Кабдолова 1/8",
+    addressVal: storeAddressRu,
     phoneLabel: "Телефон:",
     hoursLabel: "Режим работы:",
-    hoursVal: "Пн-Вс 9:00 - 21:00",
-    footerText: "Packerra.kz — Качественные упаковочные материалы напрямую от производителя в Алматы.",
+    hoursVal: workDays.ru,
+    footerText: "Packera.kz — Упаковочные материалы для переезда, хранения и бизнеса.",
     allRightsReserved: "Все права защищены.",
     toastAdded: "добавлен в корзину!",
     toastKitAdded: "Весь набор успешно добавлен в корзину!",
     toastRemoved: "Товар удален из корзины",
     toastDefaultItem: "Товар",
-    footerDesc: "Профессиональные упаковочные материалы для любых целей в Алматы. Качество, прочность и мгновенная доставка.",
+    footerDesc: "Упаковочные материалы для переезда, хранения и бизнеса.",
+    footerDelivery: DELIVERY_DESCRIPTION.ru,
+    footerInstallments: "Рассрочка: Kaspi, Halyk, Forte.",
     writeWhatsApp: "Написать в WhatsApp",
-    footerDaily: "Ежедневно: 9:00 - 21:00",
-    footerAddress: "Алматы, Алатауский район",
-    footerRights: "© 2026 Packerra.kz. Все права защищены.",
+    footerDaily: workDays.ru,
+    footerAddress: storeAddressRu,
+    footerRights: "© 2026 Packera.kz. Все права защищены.",
     ariaCall: "Позвонить",
     ariaWriteWhatsApp: "Написать в WhatsApp",
     ariaCart: "Корзина"
   },
   kk: {
-    dailyWork: "күнделікті 9:00 - 21:00",
+    homePage: 'Басты бет',
+    pageNavigation: 'Беттер бойынша навигация',
+    pageNotFound: 'Бет табылмады',
+    catalogUnavailable: 'Каталогты жүктеу мүмкін болмады. Қайта көріңіз.',
+    retryLoading: 'Қайта жүктеу',
+    promotions: 'Науқандар мен жаңалықтар',
+    promotion: 'Баннер',
+    previousBanner: 'Алдыңғы баннер',
+    nextBanner: 'Келесі баннер',
+    pauseBanners: 'Баннерлерді ауыстыруды тоқтату',
+    playBanners: 'Баннерлерді ауыстыруды қосу',
+    destinationUnavailable: 'Бұл бөлім қазір қолжетімсіз.',
+    close: 'Жабу',
+    previousImage: 'Алдыңғы сурет',
+    nextImage: 'Келесі сурет',
+    noPhotos: 'Фотосуреттер әлі қосылмаған',
+    image: 'Сурет',
+    dailyWork: workDays.kk,
     cart: "Себет",
     heroTitleText: "Көшуге, жөндеуге және қаптауға арналған барлық заттар",
     heroTitleSpan: "бір жерде",
@@ -1660,7 +1699,7 @@ export const translations = {
     installment: "Бөліп төлеу",
     delete: "Өшіру",
     total: "Жиынтығы",
-    freeShippingLeft: "Тегін жеткізуге дейін қалды",
+    freeShippingLeft: "Алматыда тегін жеткізуге дейін қалды",
     freeShippingSuccess: "🎉 Құттықтаймыз! Алматы бойынша жеткізу тегін!",
     checkoutBtn: "Тапсырысты рәсімдеу",
     waOrderHello: "Сәлеметсіз бе! Тапсырыс бергім келеді:",
@@ -1676,33 +1715,35 @@ export const translations = {
     close: "Жабу",
     contacts: "Байланыс",
     addressLabel: "Қойма мекенжайы:",
-    addressVal: "Алматы қ., Қабдолов көшесі 1/8",
+    addressVal: storeAddressKk,
     phoneLabel: "Телефон:",
     hoursLabel: "Жұмыс режимі:",
-    hoursVal: "Дс-Жс 9:00 - 21:00",
-    footerText: "Packerra.kz — Алматыдағы өндірушіден тікелей сапалы қаптама материалдары.",
+    hoursVal: workDays.kk,
+    footerText: "Packera.kz — Көшуге, сақтауға және бизнеске арналған қаптама материалдары.",
     allRightsReserved: "Барлық құқықтар қорғалған.",
     toastAdded: "себетке қосылды!",
     toastKitAdded: "Барлық жинақ себетке сәтті қосылды!",
     toastRemoved: "Тауар себетten өшірілді",
     toastDefaultItem: "Тауар",
-    footerDesc: "Алматыдағы кез келген мақсатқа арналған кәсіби қаптама материалдары. Сапа, беріктік және жылдам жеткізу.",
+    footerDesc: "Көшуге, сақтауға және бизнеске арналған қаптама материалдары.",
+    footerDelivery: DELIVERY_DESCRIPTION.kk,
+    footerInstallments: "Бөліп төлеу: Kaspi, Halyk, Forte.",
     writeWhatsApp: "WhatsApp-қа жазу",
-    footerDaily: "Күнделікті: 9:00 - 21:00",
-    footerAddress: "Алматы, Алатау ауданы",
-    footerRights: "© 2026 Packerra.kz. Барлық құқықтар қорғалған.",
+    footerDaily: workDays.kk,
+    footerAddress: storeAddressKk,
+    footerRights: "© 2026 Packera.kz. Барлық құқықтар қорғалған.",
     ariaCall: "Қоңырау шалу",
     ariaWriteWhatsApp: "WhatsApp-қа жазу",
     ariaCart: "Себет"
   }
 };
 
-export const t = (key) => {
-  return translations[currentLang.value]?.[key] || key;
+export const t = (key, language = currentLang.value) => {
+  return translations[language]?.[key] || key;
 };
 
-export const translateCategory = (catName) => {
-  if (currentLang.value === 'kk') {
+export const translateCategory = (catName, language = currentLang.value) => {
+  if (language === 'kk') {
     if (catName.includes('Картонные')) return '📦 Картон бұйымдары';
     if (catName.includes('Плёнки')) return '🫧 Үлдірлер және жабын материалдары';
     if (catName.includes('Скотч')) return '📎 Скотч және жабысқақ ленталар';
@@ -1718,9 +1759,9 @@ export const translateCategory = (catName) => {
   return catName;
 };
 
-export const translateTask = (task) => {
+export const translateTask = (task, language = currentLang.value) => {
   if (!task) return task;
-  if (currentLang.value === 'kk') {
+  if (language === 'kk') {
 
     const titleKk = task.titleKk || task.title_kk;
     const descKk = task.descKk || task.desc_kk;
@@ -1736,4 +1777,10 @@ export const translateTask = (task) => {
   }
   return task;
 };
+
+// SSR supplies the exact initial snapshot; admin/dev still load the existing API.
+if (typeof window !== 'undefined') {
+  if (hydrationState) acceptCatalog(hydrationState.catalog);
+  else loadDatabase({ allowFallback:true });
+}
 

@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { bannerFields, validateMarketingRecord } from '../shared/marketing.js';
 
 const definitions = {
   products: { table: 'products', key: 'id', fields: ['title','desc','price','unit','category','visual','color','image','images','tasks','sizes','specs','kaspiLink','halykLink','forteLink','sortOrder','categorySortOrder','taskSortOrders','isVisible'], defaults: { desc:'', price:0, unit:'шт', category:'', visual:'box', color:'', image:'', images:[], tasks:{}, sizes:[], specs:{}, kaspiLink:'', halykLink:'', forteLink:'', sortOrder:0, categorySortOrder:0, taskSortOrders:{}, isVisible:true } },
   categories: { table: 'categories', key: 'id', fields: ['name','icon','sortOrder'], defaults: { icon:'', sortOrder:0 } },
-  tasks: { table: 'tasks', key: 'id', fields: ['title','desc','titleKk','descKk','icon','image','sortOrder'], defaults: { desc:'', titleKk:'', descKk:'', icon:'box', image:'', sortOrder:0 } },
-  banners: { table: 'banners', key: 'id', fields: ['image','isActive','sortOrder'], defaults: { isActive:true, sortOrder:0 } },
+  tasks: { table: 'tasks', key: 'id', fields: ['title','desc','titleKk','descKk','icon','image','desktopImage','mobileImage','sortOrder'], defaults: { desc:'', titleKk:'', descKk:'', icon:'box', image:'', desktopImage:'', mobileImage:'', sortOrder:0 } },
+  banners: { table: 'banners', key: 'id', fields: bannerFields, defaults: { mobileImage:'', title:'', titleKk:'', description:'', descriptionKk:'', actionType:'none', actionTarget:'', startsAt:'', endsAt:'', isActive:true, sortOrder:0 } },
   settings: { table: 'site_settings', key: 'key', fields: ['value'], defaults: {} },
 };
 const jsonFields = new Set(['images','tasks','sizes','specs','taskSortOrders']);
@@ -20,7 +21,7 @@ export async function migrateIntegrity(pool) {
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(741902001)');
-    for (const version of ['002-integrity','003-task-order']) {
+    for (const version of ['002-integrity','003-task-order','004-marketing']) {
       const exists = await client.query('SELECT version FROM schema_migrations WHERE version = $1', [version]);
       if (!exists.rowCount) {
         const sql = await readFile(new URL(`./migrations/${version}.sql`, import.meta.url), 'utf8');
@@ -42,7 +43,7 @@ function parseRow(entity, row) {
       if (result[field] == null) result[field] = ['images','sizes'].includes(field) ? [] : {};
     }
   }
-  if (entity === 'settings') result.value = result.value === 'true' ? true : result.value === 'false' ? false : result.value;
+  if (entity === 'settings') result.value = result.key === 'hero' ? (typeof result.value === 'string' ? JSON.parse(result.value) : result.value) : result.value === 'true' ? true : result.value === 'false' ? false : result.value;
   return result;
 }
 
@@ -51,7 +52,10 @@ function validateFields(entity, values) {
   if (!object(values) || !Object.keys(values).length) throw error(400, 'Пустые или некорректные поля');
   for (const [field, value] of Object.entries(values)) {
     if (!definition.fields.includes(field)) throw error(400, `Недопустимое поле: ${field}`);
-    if (['isVisible','isActive'].includes(field) || entity === 'settings') {
+    if (entity === 'settings' && field === 'value' && object(value)) {
+      const issue = validateMarketingRecord(value, true);
+      if (issue) throw error(400, issue);
+    } else if (['isVisible','isActive'].includes(field) || entity === 'settings') {
       if (typeof value !== 'boolean') throw error(400, `Поле ${field} должно быть boolean`);
     } else if (field === 'price') {
       if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw error(400, 'Некорректная цена');
@@ -73,7 +77,7 @@ function validateFields(entity, values) {
             ['image','kaspiLink','halykLink','forteLink'].some(key => size[key] !== undefined && typeof size[key] !== 'string') ||
             (size.images !== undefined && (!Array.isArray(size.images) || size.images.some(image => typeof image !== 'string')))) throw error(400, 'Некорректный вариант товара');
       }
-    } else if (typeof value !== 'string' || value.length > 10000000 || (['title','name'].includes(field) && (!value.trim() || value.length > 500))) {
+    } else if (typeof value !== 'string' || value.length > 10000000 || (entity !== 'banners' && ['title','name'].includes(field) && (!value.trim() || value.length > 500))) {
       throw error(400, `Некорректное поле ${field}`);
     }
   }
@@ -96,13 +100,27 @@ function prepare(operation) {
     return { entity, action, id: entity === 'categories' ? id.toLowerCase() : id, data };
   }
   if (!identifier(operation.id) || (entity === 'categories' && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(operation.id))) throw error(400, 'Некорректный идентификатор');
-  if (entity === 'settings' && (action !== 'update' || operation.id !== 'installmentEnabled')) throw error(400, 'Недопустимая настройка');
+  if (entity === 'settings' && (action !== 'update' || !['installmentEnabled','hero'].includes(operation.id))) throw error(400, 'Недопустимая настройка');
   if (!Number.isInteger(operation.version) || operation.version < 1 || operation.version > 2147483647) throw error(400, 'Требуется исходная версия');
-  if (action === 'update') validateFields(entity, operation.changes);
+  if (action === 'update') {
+    validateFields(entity, operation.changes);
+    if (entity === 'settings' && (operation.id === 'hero' ? !object(operation.changes.value) : typeof operation.changes.value !== 'boolean')) throw error(400, 'Некорректный тип настройки');
+  }
   return { ...operation, id: entity === 'categories' ? operation.id.toLowerCase() : operation.id };
 }
 
 async function checkReferences(client, entity, values) {
+  if (entity === 'banners' || entity === 'settings') {
+    const record = entity === 'settings' ? values.value : values;
+    if (!object(record)) return;
+    const destination = { category:'categories', task:'tasks', product:'products' }[record.actionType];
+    if (destination) {
+      if (record.actionType === 'category' && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(record.actionTarget)) throw error(400, 'Некорректная категория перехода');
+      const found = await client.query(`SELECT 1 FROM ${destination} WHERE id = $1`, [record.actionTarget]);
+      if (!found.rowCount) throw error(400, 'Место перехода отсутствует. Обновите данные');
+    }
+    return;
+  }
   if (entity !== 'products') return;
   if (values.category) {
     const found = await client.query('SELECT 1 FROM categories WHERE name = $1', [values.category]);
@@ -135,6 +153,12 @@ async function mutate(client, actor, operation, changesList) {
   if (action !== 'create' && !before) throw error(404, 'Объект удалён или отсутствует', { code:'NOT_FOUND', entity, id, current: null });
   if (action !== 'create' && before.version !== version) throw error(409, 'Объект изменён другим пользователем', { code:'VERSION_CONFLICT', entity, id, current: before });
   const values = action === 'create' ? { ...operation.data } : { ...operation.changes };
+  if (entity === 'banners' && action !== 'delete') {
+    const record = Object.fromEntries(bannerFields.map(field => [field, values[field] ?? before?.[field] ?? definitions.banners.defaults[field]]));
+    const issue = validateMarketingRecord(record);
+    if (issue) throw error(400, issue);
+    await checkReferences(client, entity, record);
+  }
   if (entity === 'products' && action !== 'delete') {
     const memberships = values.tasks ?? before?.tasks ?? {};
     const supplied = values.taskSortOrders ?? {};
@@ -143,7 +167,7 @@ async function mutate(client, actor, operation, changesList) {
       (Object.hasOwn(supplied,id) ? supplied[id] : undefined) ?? (before && Object.hasOwn(before.taskSortOrders,id) ? before.taskSortOrders[id] : undefined) ?? values.sortOrder ?? before?.sortOrder ?? 0
     ]));
   }
-  if (action !== 'delete') await checkReferences(client, entity, values);
+  if (action !== 'delete' && entity !== 'banners') await checkReferences(client, entity, values);
   let result;
   if (action === 'create') {
     const fields = [definition.key, ...Object.keys(values), 'updated_by'];
@@ -152,7 +176,7 @@ async function mutate(client, actor, operation, changesList) {
     result = await client.query(`INSERT INTO ${definition.table} (${fields.map(quote).join(',')}) VALUES (${parameters.map((_,i) => '$' + (i+1)).join(',')}) RETURNING *`, parameters);
   } else if (action === 'update') {
     const entries = Object.entries(values);
-    const parameters = entries.map(([field,value]) => entity === 'products' && jsonFields.has(field) ? JSON.stringify(value) : entity === 'settings' ? String(value) : value);
+    const parameters = entries.map(([field,value]) => entity === 'products' && jsonFields.has(field) ? JSON.stringify(value) : entity === 'settings' ? (object(value) ? JSON.stringify(value) : String(value)) : value);
     parameters.push(actor, id, version);
     result = await client.query(`UPDATE ${definition.table} SET ${entries.map(([field],i) => `${quote(field)}=$${i+1}`).join(',')}, version=nextval('content_version_seq'), updated_at=clock_timestamp(), updated_by=$${entries.length+1} WHERE ${quote(definition.key)}=$${entries.length+2} AND version=$${entries.length+3} RETURNING *`, parameters);
   } else {
@@ -177,6 +201,13 @@ async function mutate(client, actor, operation, changesList) {
         await mutate(client, actor, { entity:'products', action:'update', id:row.id, version:row.version, changes:{tasks} }, changesList);
       }
     }
+  }
+  if (action === 'delete' && ['categories','tasks','products'].includes(entity)) {
+    const type = {categories:'category',tasks:'task',products:'product'}[entity];
+    const related = await client.query('SELECT * FROM banners WHERE "actionType"=$1 AND "actionTarget"=$2 ORDER BY id', [type,id]);
+    for (const banner of related.rows) await mutate(client, actor, {entity:'banners',action:'update',id:banner.id,version:banner.version,changes:{actionType:'none',actionTarget:''}}, changesList);
+    const hero = parseRow('settings', (await client.query("SELECT * FROM site_settings WHERE key='hero'")).rows[0]);
+    if (hero?.value.actionType === type && hero.value.actionTarget === id) await mutate(client, actor, {entity:'settings',action:'update',id:'hero',version:hero.version,changes:{value:{...hero.value,actionType:'none',actionTarget:''}}}, changesList);
   }
   return { entity, action, id, data: after };
 }

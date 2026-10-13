@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ isSsrBuild }) => ({
   plugins: [vue({
     template: {
       compilerOptions: {
@@ -21,17 +21,16 @@ export default defineConfig({
     }
   },
   build: {
-    rollupOptions: {
+    rollupOptions: isSsrBuild ? {} : {
       output: {
         manualChunks(id) {
           if (id.replaceAll('\\', '/').includes('/node_modules/xlsx/')) {
             return 'excel';
           }
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
+          // Keep dependencies used only by the admin in its lazy import graph.
+          if (/\/node_modules\/(?:@vue\/|vue\/)/.test(id.replaceAll('\\', '/'))) return 'vue';
         }
       }
     }
   }
-})
+}))

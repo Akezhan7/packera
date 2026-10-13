@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /api/
+Allow: /api/data
+Sitemap: https://packera.kz/sitemap.xml
+
+# Admin responses carry noindex. Crawling remains allowed to read that directive.

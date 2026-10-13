@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { products, PHONE, icons, currentLang, t, siteSettings } from '../data.js';
+import { FREE_SHIPPING_THRESHOLD } from '../../shared/storeContacts.js';
 
 const props = defineProps({
   isOpen: {
@@ -86,10 +87,8 @@ const cartTotal = computed(() => {
   }, 0);
 });
 
-const freeShippingThreshold = 100000;
-
 const leftForFreeShipping = computed(() => {
-  return Math.max(0, freeShippingThreshold - cartTotal.value);
+  return Math.max(0, FREE_SHIPPING_THRESHOLD - cartTotal.value);
 });
 
 const handleClose = () => {

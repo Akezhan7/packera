@@ -1,10 +1,17 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
-import { categories, products, icons, t, translateCategory } from '../data.js';
+import { ref, computed, watch, nextTick } from 'vue';
+import { getProductImages } from '../../shared/productImages.js';
+import { thumbnailUrl, thumbnailSrcset } from '../imageUrls.js';
+import { useStorefrontData } from '../storefrontData.js';
+const { categories, products, icons, t, translateCategory, databaseReady } = useStorefrontData();
+import { publicPath, isPlainNavigation } from '../../shared/publicRoutes.js';
 
-const emit = defineEmits(['add-to-cart', 'open-gallery', 'open-installment']);
+const props = defineProps({ categoryId: { type:String, default:'' }, productId: { type:String, default:'' }, selectedSize: { type:String, default:'' } });
+
+const emit = defineEmits(['add-to-cart', 'open-gallery', 'open-installment', 'variant-change']);
 
 const activeCategory = ref("📦 Картонные изделия");
+defineExpose({selectCategory:name => { activeCategory.value=name; }});
 
 watch(() => categories, (newCats) => {
   if (newCats.length > 0 && !newCats.some(c => c.name === activeCategory.value)) {
@@ -14,7 +21,7 @@ watch(() => categories, (newCats) => {
 
 const filteredProducts = computed(() => {
   return products
-    .filter(p => p.category === activeCategory.value && p.isVisible !== false)
+    .filter(p => (props.productId ? p.id === props.productId : p.category === activeCategory.value) && p.isVisible !== false)
     .sort((a, b) => {
       const orderA = Number(a.categorySortOrder ?? a.sortOrder) || 0;
       const orderB = Number(b.categorySortOrder ?? b.sortOrder) || 0;
@@ -46,7 +53,8 @@ const activeImageIndices = ref({});
 
 const setActiveImage = (productId, idx) => {
   activeImageIndices.value[productId] = idx;
-  const el = document.getElementById(`visual-box-${productId}`);
+  if (typeof document === 'undefined') return;
+  const el = document.getElementById(`catalog-visual-box-${productId}`);
   if (el) {
     el.scrollTo({
       left: idx * el.clientWidth,
@@ -104,7 +112,19 @@ const getCategoryIcon = (name) => {
 
 // Size selector state
 const selectedSizes = ref({});
+const imageSelectedSizes = ref({});
 const expandedSizes = ref({});
+
+watch(() => categories.find(category => category.id === props.categoryId)?.name, name => {
+  if (name) activeCategory.value = name;
+}, { immediate:true });
+watch(() => [products.find(product => product.id === props.productId), props.selectedSize], ([product, size]) => {
+  if (!product) return;
+  const explicit = product.sizes?.some(variant => variant.size === size) ? size : '';
+  selectedSizes.value[product.id] = explicit || product.sizes?.[0]?.size || '';
+  imageSelectedSizes.value[product.id] = explicit;
+  nextTick(() => setActiveImage(product.id, 0));
+}, { immediate:true });
 
 const getSelectedSize = (productId) => {
   if (selectedSizes.value[productId] === undefined) {
@@ -120,10 +140,14 @@ const getSelectedSize = (productId) => {
 
 const setSelectedSize = (productId, size) => {
   selectedSizes.value[productId] = size;
+  imageSelectedSizes.value[productId] = size;
+  nextTick(() => setActiveImage(productId,0));
+  if (props.productId === productId) emit('variant-change', size);
 };
 
 const getVisibleSizes = (product) => {
   if (!product.sizes || product.sizes.length === 0) return [];
+  if (props.productId) return product.sizes;
   const isExpanded = expandedSizes.value[product.id] || false;
   if (isExpanded) {
     return product.sizes;
@@ -144,23 +168,7 @@ const getProductDisplayPrice = (product) => {
   return product.price;
 };
 
-const getProductDisplayImages = (product) => {
-  let mainImages = product.images && product.images.length ? [...product.images] : (product.image ? [product.image] : []);
-  const sel = getSelectedSize(product.id);
-  if (sel && product.sizes && product.sizes.length > 0) {
-    const found = product.sizes.find(s => s.size === sel);
-    if (found) {
-      let sizeImages = [];
-      if (found.images && found.images.length > 0) sizeImages = found.images;
-      else if (found.image) sizeImages = [found.image];
-      
-      if (sizeImages.length > 0) {
-        return [...new Set([...sizeImages, ...mainImages])];
-      }
-    }
-  }
-  return mainImages.length > 0 ? mainImages : ['https://commons.wikimedia.org/wiki/Special:FilePath/Cardboard%20box.png?width=250'];
-};
+const getProductDisplayImages = product => getProductImages(product,imageSelectedSizes.value[product.id]);
 
 const handleAddToCart = (product) => {
   const qty = getQuantity(product.id);
@@ -173,16 +181,18 @@ const handleAddToCart = (product) => {
 
 <template>
   <!-- Category Selector Section -->
-  <section class="catalog-tabs-section" id="catalog-tabs-section">
+  <section v-if="!productId" class="catalog-tabs-section" id="catalog-tabs-section">
     <div class="container">
       <h2 class="section-title">{{ t('catalogTitle') }}</h2>
       
       <!-- Category tabs scrollbar bar -->
       <nav class="category-tabs-nav" style="margin-bottom: 0;">
-          <button 
+          <component :is="databaseReady ? 'a' : 'button'"
             v-for="cat in categories" 
             :key="cat.name"
-            @click="activeCategory = cat.name"
+            :href="databaseReady ? publicPath('category', cat.id) : undefined"
+            :aria-current="activeCategory === cat.name ? 'true' : undefined"
+            @click="isPlainNavigation($event) && (activeCategory = cat.name)"
             :class="['category-tab-btn', { active: activeCategory === cat.name }]"
           >
             <span class="cat-btn-content">
@@ -192,13 +202,13 @@ const handleAddToCart = (product) => {
               </span>
               <span class="cat-btn-text">{{ cleanCatName(translateCategory(cat.name)) }}</span>
             </span>
-          </button>
+          </component>
       </nav>
     </div>
   </section>
 
   <!-- Products Grid Section -->
-  <section class="catalog-products-section" id="catalog-products-section">
+  <section class="catalog-products-section" :class="{'product-page':productId}" id="catalog-products-section">
     <div class="container">
       <!-- Products Grid -->
       <div class="products-grid" style="padding-left: 0; padding-right: 0; padding-top: 0; padding-bottom: 0;">
@@ -209,11 +219,11 @@ const handleAddToCart = (product) => {
         >
           <!-- Visual trigger gallery -->
           <div 
-            :id="`visual-box-${product.id}`"
+            :id="`catalog-visual-box-${product.id}`"
             class="product-visual-box scroll-slider" 
             style="--visual-color: #f6f5f0"
             @scroll="handleScroll(product.id, $event)"
-            @click="emit('open-gallery', product.id, getSelectedSize(product.id))"
+            @click="emit('open-gallery', product.id, imageSelectedSizes[product.id])"
           >
             <div 
               v-for="(img, idx) in getProductDisplayImages(product)"
@@ -221,10 +231,12 @@ const handleAddToCart = (product) => {
               class="product-slide"
             >
               <img 
-                :src="img" 
+                :src="Math.abs(idx - (activeImageIndices[product.id] || 0)) <= 1 ? thumbnailUrl(img, productId ? 960 : 640) : undefined"
+                :srcset="Math.abs(idx - (activeImageIndices[product.id] || 0)) <= 1 ? thumbnailSrcset(img) : undefined"
+                :sizes="productId ? '(max-width: 767px) 90vw, 45vw' : '(max-width: 480px) 46vw, (max-width: 768px) 44vw, (max-width: 1024px) 30vw, 280px'"
+                decoding="async"
                 :alt="product.title" 
-                loading="lazy"
-                onerror="this.src='https://commons.wikimedia.org/wiki/Special:FilePath/Cardboard%20box.png?width=250'"
+                :loading="productId && idx === 0 ? 'eager' : 'lazy'"
               />
             </div>
           </div>
@@ -245,8 +257,11 @@ const handleAddToCart = (product) => {
               ></button>
             </div>
 
-            <h4 class="product-title">{{ product.title }}</h4>
+            <h4 v-if="!productId" class="product-title"><component :is="databaseReady ? 'a' : 'span'" :href="databaseReady ? publicPath('product', product.id, imageSelectedSizes[product.id]) : undefined">{{ product.title }}</component></h4>
             <p class="product-desc">{{ product.desc }}</p>
+            <dl v-if="productId && Object.keys(product.specs || {}).length" class="product-page-specs">
+              <div v-for="(value, key) in product.specs" :key="key"><dt>{{ key }}</dt><dd>{{ value }}</dd></div>
+            </dl>
 
             <!-- Sizes Selector Pills -->
             <div v-if="product.sizes && product.sizes.length > 0" class="product-sizes-selector">
@@ -262,7 +277,7 @@ const handleAddToCart = (product) => {
                   {{ s.size }}
                 </button>
                 <button 
-                  v-if="product.sizes.length > 0" 
+                  v-if="!productId && product.sizes.length > 0"
                   @click.stop="toggleSizesExpanded(product.id)" 
                   class="size-pill more-btn"
                   type="button"
@@ -312,4 +327,14 @@ const handleAddToCart = (product) => {
 .product-card {
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s, box-shadow 0.2s;
 }
+.product-page .products-grid { display:block; }
+.product-page .product-card { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:32px; padding:24px; }
+.product-page .product-info { padding:0; min-width:0; overflow-wrap:anywhere; }
+.product-page .product-desc { display:block; -webkit-line-clamp:unset; height:auto; max-height:none; overflow:visible; white-space:pre-line; }
+.product-page .product-visual-box { min-width:0; align-self:start; }
+.product-page-specs { margin:20px 0; }
+.product-page-specs div { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; padding:8px 0; border-bottom:1px solid var(--border-line); overflow-wrap:anywhere; }
+.product-page-specs dt { color:var(--text-lead); }
+.product-page-specs dd { margin:0; }
+@media(max-width:767px) { .product-page .product-card { grid-template-columns:minmax(0,1fr); gap:20px; padding:16px; } }
 </style>

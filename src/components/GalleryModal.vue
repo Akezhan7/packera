@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { products, icons } from '../data.js';
+import { products, icons, t } from '../data.js';
+import { getProductImages } from '../../shared/productImages.js';
 
 const props = defineProps({
   productId: {
@@ -18,16 +19,19 @@ const emit = defineEmits(['close']);
 const product = ref(null);
 const currentIndex = ref(0);
 const currentSelectedSize = ref('');
+const imageSelectedSize = ref('');
 
 watch(() => [props.productId, props.selectedSize], () => {
   if (props.productId) {
     product.value = products.find(p => p.id === props.productId) || null;
     currentSelectedSize.value = props.selectedSize || (product.value?.sizes?.[0]?.size || '');
+    imageSelectedSize.value = props.selectedSize || '';
     currentIndex.value = 0;
     document.body.classList.add('modal-open');
   } else {
     product.value = null;
     currentSelectedSize.value = '';
+    imageSelectedSize.value = '';
     document.body.classList.remove('modal-open');
   }
 }, { immediate: true });
@@ -43,53 +47,11 @@ const displayPrice = computed(() => {
 
 const selectSizeInModal = (sizeName) => {
   currentSelectedSize.value = sizeName;
+  imageSelectedSize.value = sizeName;
   currentIndex.value = 0;
 };
 
-const images = computed(() => {
-  if (!product.value) return [];
-  const list = [];
-
-  // 1. Primary size photos (if size selected)
-  if (currentSelectedSize.value && product.value.sizes && product.value.sizes.length > 0) {
-    const found = product.value.sizes.find(s => s.size === currentSelectedSize.value);
-    if (found) {
-      if (found.images && found.images.length > 0) {
-        list.push(...found.images);
-      } else if (found.image) {
-        list.push(found.image);
-      }
-    }
-  }
-
-  // 2. All other sizes' photos
-  if (product.value.sizes && product.value.sizes.length > 0) {
-    product.value.sizes.forEach(s => {
-      if (s.images && s.images.length > 0) {
-        list.push(...s.images);
-      } else if (s.image) {
-        list.push(s.image);
-      }
-    });
-  }
-
-  // 3. Main product images
-  if (product.value.images && product.value.images.length > 0) {
-    list.push(...product.value.images);
-  } else if (product.value.image) {
-    list.push(product.value.image);
-  }
-
-  // 4. Remove empty & duplicate URLs preserving priority
-  const uniqueImages = [];
-  list.forEach(img => {
-    if (img && typeof img === 'string' && img.trim() !== '' && !uniqueImages.includes(img)) {
-      uniqueImages.push(img);
-    }
-  });
-
-  return uniqueImages;
-});
+const images = computed(() => getProductImages(product.value,imageSelectedSize.value));
 
 const handlePrev = () => {
   if (images.value.length <= 1) return;
@@ -148,7 +110,7 @@ onUnmounted(() => {
     <button 
       @click="emit('close')" 
       class="gallery-modal-close" 
-      aria-label="Закрыть галерею"
+      :aria-label="t('close')"
       v-html="icons.x"
     ></button>
 
@@ -163,24 +125,25 @@ onUnmounted(() => {
         v-if="images.length > 1" 
         @click="handlePrev" 
         class="gallery-arrow gallery-arrow-prev" 
-        aria-label="Предыдущее изображение"
+        :aria-label="t('previousImage')"
       >
         ‹
       </button>
 
       <!-- Main large image -->
-      <img 
+      <img v-if="images.length"
         :src="images[currentIndex]" 
         :alt="product?.title" 
-        onerror="this.src='https://commons.wikimedia.org/wiki/Special:FilePath/Cardboard%20box.png?width=640'"
       />
+
+      <p v-if="!images.length">{{ t('noPhotos') }}</p>
 
       <!-- Next Arrow -->
       <button 
         v-if="images.length > 1" 
         @click="handleNext" 
         class="gallery-arrow gallery-arrow-next" 
-        aria-label="Следующее изображение"
+        :aria-label="t('nextImage')"
       >
         ›
       </button>
@@ -230,7 +193,7 @@ onUnmounted(() => {
         @click="selectThumb(idx)"
         :class="['gallery-thumb-item', { active: idx === currentIndex }]"
       >
-        <img :src="img" :alt="`Миниатюра ${idx + 1}`" />
+        <img :src="img" :alt="`${t('image')} ${idx + 1}`" />
       </button>
     </div>
   </div>

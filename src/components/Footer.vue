@@ -1,5 +1,6 @@
 <script setup>
-import { PHONE, FORMATTED_PHONE, icons, t } from '../data.js';
+import { useStorefrontData } from '../storefrontData.js';
+const { PHONE, FORMATTED_PHONE, icons, t } = useStorefrontData();
 </script>
 
 <template>
@@ -14,6 +15,8 @@ import { PHONE, FORMATTED_PHONE, icons, t } from '../data.js';
           <p>
             {{ t('footerDesc') }}
           </p>
+          <p>{{ t('footerDelivery') }}</p>
+          <p>{{ t('footerInstallments') }}</p>
         </div>
 
 

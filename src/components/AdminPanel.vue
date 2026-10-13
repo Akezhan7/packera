@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import AdminUsers from './AdminUsers.vue';
 import AdminHistory from './AdminHistory.vue';
+import AdminBanners from './AdminBanners.vue';
 import draggable from 'vuedraggable';
 import { compareTaskProducts, makeTaskSortOperations } from '../taskSorting.js';
 import { products, categories, tasks, banners, saveOperations, loadDatabase, databaseReady, databaseError, catalogLoading, checkPendingSave, icons, siteSettings, settingVersions } from '../data.js';
@@ -124,7 +125,10 @@ const taskTitleKk = ref('');
 const taskDescKk = ref('');
 const taskIcon = ref('box');
 const taskImage = ref('');
+const taskDesktopImage = ref('');
+const taskMobileImage = ref('');
 const taskSortOrder = ref(0);
+const marketingState = ref({dirty:false});
 
 
 
@@ -186,29 +190,6 @@ const productsByCategoryCount = computed(() => {
   return counts;
 });
 
-// Banners State
-const triggerBannerUpload = () => {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
-  input.onchange = handleBannerSelected;
-  input.click();
-};
-
-const handleBannerSelected = async (event) => {
-  const file = event.target.files[0];
-  if (!file || catalogBlocked.value) return;
-  try {
-    const url = await prepareImageUpload(file);
-    await runAction([{entity:'banners',action:'create',data:{id:crypto.randomUUID(),image:url,isActive:true,sortOrder:banners.length}}]);
-  } catch (error) { reportSaveError(error); }
-};
-const removeBanner = index => {
-  if (confirm('Удалить баннер?')) return runAction([deleteOperation('banners',banners[index])]);
-};
-const toggleBanner = banner => runAction([makeUpdateOperation('banners',banner,{isActive:!banner.isActive})]);
-const moveBannerUp = index => moveOrdered('banners',banners,index,-1);
-const moveBannerDown = index => moveOrdered('banners',banners,index,1);
 const toggleInstallment = () => runAction([{entity:'settings',action:'update',id:'installmentEnabled',version:settingVersions.installmentEnabled,changes:{value:!siteSettings.installmentEnabled}}]);
 
 // Filtered products list
@@ -389,6 +370,8 @@ const openTaskModal = (task = null) => {
     taskDescKk.value = task.descKk || task.desc_kk || '';
     taskIcon.value = task.icon || 'box';
     taskImage.value = task.image || '';
+    taskDesktopImage.value = task.desktopImage || '';
+    taskMobileImage.value = task.mobileImage || '';
     taskSortOrder.value = task.sortOrder || 0;
   } else {
     editingTask.value = null;
@@ -399,6 +382,8 @@ const openTaskModal = (task = null) => {
     taskDescKk.value = '';
     taskIcon.value = 'box';
     taskImage.value = '';
+    taskDesktopImage.value = '';
+    taskMobileImage.value = '';
     taskSortOrder.value = 0;
   }
   isTaskModalOpen.value = true;
@@ -416,6 +401,8 @@ const buildTaskDraft = () => {
     descKk: taskDescKk.value.trim(),
     icon: taskIcon.value,
     image: taskImage.value.trim(),
+    desktopImage: taskDesktopImage.value.trim(),
+    mobileImage: taskMobileImage.value.trim(),
     sortOrder: Number(taskSortOrder.value) || 0
   };
 
@@ -445,7 +432,7 @@ const handleDeleteTask = id => {
   if (task && confirm(`Удалить задачу «${task.title}»?`)) return runAction([deleteOperation('tasks',task)]);
 };
 
-const onTaskImageFileChange = async (event) => {
+const onTaskImageFileChange = async (event, field = 'image') => {
   const file = event.target.files[0];
   if (!file) return;
   if (!file.type.startsWith('image/')) {
@@ -453,8 +440,10 @@ const onTaskImageFileChange = async (event) => {
     return;
   }
   try {
-    const finalUrl = await prepareImageUpload(file);
-    taskImage.value = finalUrl;
+    const finalUrl = await prepareImageUpload(file, field === 'image' ? 800 : 1600);
+    if (field === 'desktopImage') taskDesktopImage.value = finalUrl;
+    else if (field === 'mobileImage') taskMobileImage.value = finalUrl;
+    else taskImage.value = finalUrl;
   } catch (err) {
     alert('Ошибка при загрузке изображения');
   }
@@ -612,7 +601,7 @@ const moveSizeRowDown = (idx) => {
 };
 
 // Image Upload Helper
-const resizeAndConvertImage = (file) => {
+const resizeAndConvertImage = (file, maxDim = 800) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -625,7 +614,6 @@ const resizeAndConvertImage = (file) => {
         const canvas = document.createElement('canvas');
         let width = img.width;
         let height = img.height;
-        const maxDim = 800;
         
         if (width > maxDim || height > maxDim) {
           if (width > height) {
@@ -654,9 +642,9 @@ const resizeAndConvertImage = (file) => {
   });
 };
 
-const prepareImageUpload = async file => {
+const prepareImageUpload = async (file, maxDim = 800) => {
   uploadBusy.value++;
-  try { return await uploadImageToServer(await resizeAndConvertImage(file),file.name); }
+  try { return await uploadImageToServer(await resizeAndConvertImage(file,maxDim),file.name); }
   finally { uploadBusy.value--; }
 };
 
@@ -852,14 +840,14 @@ const productFormState = () => ({
   sizes:prodSizesList.value.map(({_id,newUrl,showGallery,...size})=>size),tasks:prodTasksMap.value,sortOrder:prodSortOrder.value,isVisible:prodIsVisible.value,
   kaspiLink:prodKaspiLink.value,halykLink:prodHalykLink.value,forteLink:prodForteLink.value
 });
-const taskFormState = () => ({id:taskId.value,title:taskTitle.value,desc:taskDesc.value,titleKk:taskTitleKk.value,descKk:taskDescKk.value,icon:taskIcon.value,image:taskImage.value,sortOrder:taskSortOrder.value});
+const taskFormState = () => ({id:taskId.value,title:taskTitle.value,desc:taskDesc.value,titleKk:taskTitleKk.value,descKk:taskDescKk.value,icon:taskIcon.value,image:taskImage.value,desktopImage:taskDesktopImage.value,mobileImage:taskMobileImage.value,sortOrder:taskSortOrder.value});
 const productDirty = computed(()=>isProductModalOpen.value && JSON.stringify(productFormState())!==productInitialState.value);
 const taskDirty = computed(()=>isTaskModalOpen.value && JSON.stringify(taskFormState())!==taskInitialState.value);
 const categoryDirty = computed(()=>editingCategoryIndex.value!==-1 && (editingCategoryName.value!==categoryBaseline.value?.name || editingCategoryIcon.value!==(categoryBaseline.value?.icon||'')));
 const userManagement=ref({draft:null,busy:false});
 const userDraft=computed(()=>userManagement.value.draft);
 const userManagementBusy=computed(()=>userManagement.value.busy);
-const hasUnsavedChanges = computed(()=>userDraft.value || productDirty.value || taskDirty.value || categoryDirty.value || newCategoryName.value.trim() || importDraft.value || pendingContentSave.value);
+const hasUnsavedChanges = computed(()=>marketingState.value.dirty || userDraft.value || productDirty.value || taskDirty.value || categoryDirty.value || newCategoryName.value.trim() || importDraft.value || pendingContentSave.value);
 const guardUnload = event => { if(hasUnsavedChanges.value || userManagementBusy.value || contentBusy.value || uploadBusy.value) { event.preventDefault(); event.returnValue=''; } };
 onUnmounted(()=>window.removeEventListener('beforeunload',guardUnload));
 const closeProductModal = () => {
@@ -918,6 +906,7 @@ const checkSaveResult = async () => {
     } else {
       saveIssue.value={...saveIssue.value,message:result.outcome==='not-written' ? 'Изменения не записаны. Проверьте черновик и повторите сохранение.' : 'Состояние на сервере отличается от запроса. Обновите форму и вручную перенесите правки.',code:result.outcome==='not-written' ? 'SAVE_NOT_WRITTEN':'SAVE_DIVERGED',snapshot:result.snapshot};
     }
+    return result;
   } catch(error) { reportSaveError(error,{entity:saveIssue.value?.entity,draft:saveIssue.value?.draft}); }
 };
 const issueCurrent = computed(()=>saveIssue.value?.current ?? saveIssue.value?.snapshot?.[saveIssue.value?.entity]?.find(item=>item.id===saveIssue.value?.draft?.id));
@@ -941,7 +930,7 @@ const readImportFile = async event => {
   if(!file || catalogBlocked.value) return;
   try {
     const XLSX=await import('xlsx');
-    const workbook=XLSX.read(await file.arrayBuffer(),{type:'array'});
+    const workbook=XLSX.read(await file.arrayBuffer(),{type:'array',raw:true});
     const rows=XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]],{defval:''});
     const {prepareProductImport}=await import('../adminImport.js');
     importDraft.value=prepareProductImport(rows,{products,categories,tasks});
@@ -1877,62 +1866,21 @@ const onProdImageFileChange = async (event) => {
           </div>
         </div>
 
-        <!-- CONTENT TAB: BANNERS -->
-        <div v-if="activeTab === 'banners'" class="tab-pane-content fade-in">
-          <div class="card" style="padding: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-              <h3 style="margin: 0; font-size: 16px;">Управление баннерами</h3>
-              <button @click="triggerBannerUpload" class="btn btn-primary">
-                + Добавить баннер
-              </button>
-            </div>
-            
-            <div class="table-container">
-              <table class="dashboard-table">
-                <thead>
-                  <tr>
-                    <th style="width: 150px;">Изображение</th>
-                    <th style="width: 100px;">Статус</th>
-                    <th>Сортировка</th>
-                    <th style="text-align: right;">Действия</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(banner, index) in banners" :key="banner.id">
-                    <td>
-                      <img :src="banner.image" style="max-width: 120px; max-height: 60px; object-fit: contain; background: #eee; border-radius: 4px;" />
-                    </td>
-                    <td>
-                      <button 
-                        @click="toggleBanner(banner)" 
-                        :class="['btn', banner.isActive ? 'btn-success' : 'btn-secondary']"
-                        style="padding: 4px 8px; font-size: 12px; min-width: 80px;"
-                      >
-                        {{ banner.isActive ? 'Активен' : 'Отключен' }}
-                      </button>
-                    </td>
-                    <td>
-                      <div style="display: flex; gap: 4px; align-items: center;">
-                        <button @click="moveBannerUp(index)" :disabled="index === 0" class="btn btn-secondary" style="padding: 2px 6px;">↑</button>
-                        <button @click="moveBannerDown(index)" :disabled="index === banners.length - 1" class="btn btn-secondary" style="padding: 2px 6px;">↓</button>
-                      </div>
-                    </td>
-                    <td style="text-align: right;">
-                      <button @click="removeBanner(index)" class="btn" style="background: transparent; color: #e74c3c; border: 1px solid #e74c3c; padding: 4px 8px;">
-                        Удалить
-                      </button>
-                    </td>
-                  </tr>
-                  <tr v-if="banners.length === 0">
-                    <td colspan="4" style="text-align: center; color: #999; padding: 30px;">
-                      Нет баннеров. Добавьте первый баннер.
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        <!-- Keep an unsaved banner editor mounted when switching tabs. -->
+        <AdminBanners
+          v-if="activeTab === 'banners' || marketingState.dirty"
+          v-show="activeTab === 'banners'"
+          :state="marketingState"
+          :save="runAction"
+          :upload-image="prepareImageUpload"
+          :blocked="catalogBlocked"
+          :catalog-ready="databaseReady"
+          :reading="catalogLoading"
+          :writing="contentBusy"
+          :issue="saveIssue"
+          :pending="Boolean(pendingContentSave)"
+          :check-save="checkSaveResult"
+        />
 
         <!-- CONTENT TAB: SETTINGS -->
         <div v-if="activeTab === 'settings'" class="tab-pane-content fade-in">
@@ -2518,13 +2466,27 @@ const onProdImageFileChange = async (event) => {
                   <input 
                     ref="taskImageFileInput" 
                     type="file" 
-                    accept="image/svg+xml" 
+                    accept="image/*"
                     style="display:none" 
                     @change="onTaskImageFileChange" 
                   />
                 </div>
                 <small style="display: block; color: #ef4444; font-size: 11px; margin-top: 5px; font-weight: 500;">* Поддерживаются форматы JPEG, PNG, SVG</small>
               </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="t-task-photo">Фото карточки для ПК</label>
+              <input id="t-task-photo" type="file" accept="image/*" @change="onTaskImageFileChange($event, 'desktopImage')" />
+              <input id="t-desktop-photo" v-model="taskDesktopImage" class="form-control" aria-label="Ссылка на фото карточки для ПК" />
+              <small>Название на ПК берётся из полей RU/KK ниже. Загрузка этого фото не меняет мобильную картинку.</small>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="t-mobile-photo">Картинка мобильной кнопки</label>
+              <input id="t-mobile-photo" v-model="taskMobileImage" class="form-control" />
+              <input type="file" accept="image/*" aria-label="Загрузить фото задачи для телефона" @change="onTaskImageFileChange($event, 'mobileImage')" />
+              <small>Готовая картинка с названием и визуалом внутри. Рекомендуемый размер: 640 × 200 px. Текст поверх картинки не добавляется и автоматически не переводится. Без неё показывается компактная кнопка с текущим названием RU/KK и иконкой.</small>
+              <button v-if="taskMobileImage" type="button" class="btn btn-secondary" @click="taskMobileImage=''">Убрать мобильную картинку</button>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">

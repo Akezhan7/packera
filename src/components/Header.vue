@@ -1,8 +1,12 @@
 <script setup>
 import { computed } from 'vue';
-import { icons, PHONE, FORMATTED_PHONE, currentLang, setLang, t } from '../data.js';
+import { useStorefrontData } from '../storefrontData.js';
+import { isPlainNavigation } from '../../shared/publicRoutes.js';
+const { icons, PHONE, FORMATTED_PHONE, currentLang, setLang, t } = useStorefrontData();
 
 const props = defineProps({
+  languageUrls: {type:Object,default:() => ({})},
+  homeUrl: {type:String,default:'/'},
   cartTotal: {
     type: Number,
     required: true
@@ -18,14 +22,17 @@ const emit = defineEmits(['open-cart']);
 const formattedTotal = computed(() => {
   return `${Math.round(props.cartTotal).toLocaleString('ru-RU')} ₸`;
 });
+function chooseLanguage(event, language) {
+  if (isPlainNavigation(event)) setLang(language);
+}
 </script>
 
 <template>
   <header class="topbar">
     <div class="container nav-container">
       <!-- Brand Logo -->
-      <a href="#top" class="brand" aria-label="Packerra.kz">
-        <img src="/logo2.png" alt="Packerra.kz" onerror="this.src='https://packerra.kz/logo2.png'" />
+      <a :href="homeUrl" class="brand" aria-label="Packera.kz">
+        <img src="/logo2.png" alt="Packerra.kz" width="1590" height="617" onerror="this.src='https://packerra.kz/logo2.png'" />
       </a>
 
       <!-- Actions (Phone, WhatsApp, Language Switcher, Cart) -->
@@ -52,18 +59,18 @@ const formattedTotal = computed(() => {
 
         <!-- Sleek Language Switcher -->
         <div class="lang-switcher">
-          <button 
-            @click="setLang('ru')" 
+          <component :is="languageUrls.ru ? 'a' : 'button'" :href="languageUrls.ru"
+            @click="chooseLanguage($event, 'ru')"
             :class="['lang-btn', { active: currentLang === 'ru' }]"
           >
             RU
-          </button>
-          <button 
-            @click="setLang('kk')" 
+          </component>
+          <component :is="languageUrls.kk ? 'a' : 'button'" :href="languageUrls.kk"
+            @click="chooseLanguage($event, 'kk')"
             :class="['lang-btn', { active: currentLang === 'kk' }]"
           >
             KK
-          </button>
+          </component>
         </div>
 
 
@@ -187,6 +194,8 @@ const formattedTotal = computed(() => {
 }
 
 .lang-btn {
+  display: inline-flex;
+  align-items: center;
   height: 100%;
   padding: 0 10px;
   font-family: var(--font-display);

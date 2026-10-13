@@ -6,7 +6,7 @@
   "scripts": {
     "server": "node server.js",
     "dev": "concurrently \"node server.js\" \"vite\"",
-    "build": "vite build",
+    "build": "vite build && vite build --ssr src/entry-server.js --outDir dist-ssr",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -19,7 +19,7 @@
     "sqlite3": "^6.0.1",
     "vue": "^3.5.34",
     "vuedraggable": "^4.1.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.6",

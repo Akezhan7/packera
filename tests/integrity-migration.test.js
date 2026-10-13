@@ -9,10 +9,12 @@ test('migration on handover dump preserves every original field and is repeatabl
     const snapshots = {};
     for (const [table, original] of Object.entries(server.restoredRows)) {
       const rows = (await server.query(`SELECT * FROM ${table} ORDER BY ${table === 'categories' ? 'name' : table === 'site_settings' ? 'key' : 'id'}`)).rows;
-      assert.equal(rows.length,original.length,`${table}: count unchanged`);
+      assert.equal(rows.length,original.length + (table === 'site_settings' && !original.some(row=>row.key==='hero') ? 1 : 0),`${table}: only hero setting may be added`);
       for (let index=0;index<original.length;index++) {
-        for (const [key,value] of Object.entries(original[index])) assert.deepEqual(rows[index][key],value,`${table} ${index} ${key}`);
-        assert.ok(Number.isInteger(rows[index].version));
+        const field = table === 'site_settings' ? 'key' : table === 'categories' ? 'name' : 'id';
+        const actual = rows.find(row=>row[field]===original[index][field]);
+        for (const [key,value] of Object.entries(original[index])) assert.deepEqual(actual[key],value,`${table} ${index} ${key}`);
+        assert.ok(Number.isInteger(actual.version));
       }
       snapshots[table] = rows;
     }

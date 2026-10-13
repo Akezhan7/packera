@@ -5,6 +5,7 @@ COPY package*.json .npmrc ./
 RUN npm ci
 COPY index.html vite.config.js ./
 COPY src ./src
+COPY shared ./shared
 COPY public ./public
 RUN npm run build && npm prune --omit=dev
 
@@ -13,8 +14,10 @@ WORKDIR /app
 ENV NODE_ENV=production PORT=3001
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/dist-ssr ./dist-ssr
 COPY package.json server.js ./
 COPY server ./server
+COPY shared ./shared
 COPY scripts ./scripts
 COPY public ./public
 RUN mkdir -p /app/public/products && chown node:node /app/public/products && chmod -R a+rX /app
