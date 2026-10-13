@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import express from 'express';
@@ -14,6 +14,7 @@ test('responsive URLs only address supported local uploads', () => {
   assert.equal(thumbnailUrl(image, 320), `${image}?w=320&format=webp`);
   assert.equal(thumbnailSrcset(image).split(', ').length, 4);
   assert.equal(thumbnailUrl('/Artboard 1.png',640),'/products/hero-banner?w=640&format=webp');
+  assert.equal(thumbnailUrl('/products/upload_icon_1780000000000.svg',320),'/products/upload_icon_1780000000000.svg?w=320&format=webp');
   for (const url of ['https://example.com/photo.jpg', '/products/icon.svg', '/logo2.png', '/products/../upload_a_1.png']) {
     assert.equal(thumbnailUrl(url, 320), url);
     assert.equal(thumbnailSrcset(url), undefined);
@@ -54,6 +55,25 @@ test('WebP covers uploads and the static hero, preserves alpha and separates leg
   assert.equal(rgba.info.width,100);assert.equal(rgba.data[3],0);
   assert.equal((await fetch(`${base}${filename}?w=640&format=unknown`)).status,400);
   assert.equal((await fetch(`${base}logo2.png?w=640&format=webp`)).status,400);
+});
+
+test('SVGs with embedded PNGs produce transparent WebP thumbnails without modifying the original',async t=>{
+  const dir=await mkdtemp(join(tmpdir(),'pakera-svg-thumb-'));
+  const filename='upload_svgicon_1780000000000.svg';
+  const png=await new Jimp(260,260,0x11223300).getBufferAsync(Jimp.MIME_PNG);
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 260 260"><image width="260" height="260" xlink:href="data:image/png;base64,${png.toString('base64')}"/></svg>`;
+  await writeFile(join(dir,filename),svg);
+  const app=express();app.use('/products',createImageThumbnailsRouter(dir));
+  const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
+  t.after(async()=>{await new Promise(resolve=>server.close(resolve));await rm(dir,{recursive:true,force:true});});
+  const base=`http://127.0.0.1:${server.address().port}/products/`;
+  const response=await fetch(`${base}${filename}?w=320&format=webp`);
+  assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/^image\/webp/);
+  const buffer=Buffer.from(await response.arrayBuffer());
+  const decoded=await sharp(buffer).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  assert.equal(decoded.info.width,260);assert.equal(decoded.data[3],0);
+  assert.equal(await readFile(join(dir,filename),'utf8'),svg);
+  assert.equal((await fetch(`${base}${filename}?w=320`)).status,400);
 });
 
 test('thumbnails shrink photos, preserve originals and cache concurrent requests', async t => {

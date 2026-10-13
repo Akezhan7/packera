@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 
 const widths = new Set([320, 640, 960, 1280]);
-const uploadedImage = /^upload_[a-z0-9]+_\d+\.(?:jpe?g|png)$/i;
+const uploadedImage = /^upload_[a-z0-9]+_\d+\.(?:jpe?g|png|svg)$/i;
 
 // Only generated upload names are immutable; original files are never overwritten.
 export function createImageThumbnailsRouter(productsDir, publicDir) {
@@ -39,7 +39,7 @@ export function createImageThumbnailsRouter(productsDir, publicDir) {
     const width = Number(req.query.w);
     const format = req.query.format;
     const isHero = req.params.filename === 'hero-banner' && Boolean(publicDir);
-    if (!widths.has(width) || (format !== undefined && format !== 'webp') || (!isHero && !uploadedImage.test(req.params.filename))) {
+    if (!widths.has(width) || (format !== undefined && format !== 'webp') || (/\.svg$/i.test(req.params.filename) && format !== 'webp') || (!isHero && !uploadedImage.test(req.params.filename))) {
       return res.status(400).json({ error: 'Unsupported image or thumbnail width' });
     }
     const source = isHero ? join(publicDir,'Artboard 1.png') : join(productsDir, req.params.filename);

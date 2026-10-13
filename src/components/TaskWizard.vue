@@ -175,14 +175,14 @@ const handleAddToCart = (product) => {
             <picture v-if="task.desktopImage || task.mobileImage">
               <img :src="thumbnailUrl(task.desktopImage || task.mobileImage, 640)" :srcset="thumbnailSrcset(task.desktopImage || task.mobileImage)" sizes="(max-width: 1024px) 30vw, 190px" alt="" loading="lazy" decoding="async" />
             </picture>
-            <img v-else :src="task.image" alt="" class="task-choice-icon" loading="lazy" />
+            <img v-else :src="thumbnailUrl(task.image,320)" :srcset="thumbnailSrcset(task.image)" sizes="48px" alt="" class="task-choice-icon" loading="lazy" decoding="async" />
           </span>
           <strong class="task-choice-name">{{ task.title }}</strong>
           <span v-if="task.mobileImage" class="task-mobile-art">
             <img :src="thumbnailUrl(task.mobileImage, 640)" :srcset="thumbnailSrcset(task.mobileImage)" sizes="46vw" alt="" loading="lazy" decoding="async" />
           </span>
           <span v-else class="task-mobile-fallback">
-            <img :src="task.image" alt="" loading="lazy" />
+            <img :src="thumbnailUrl(task.image,320)" :srcset="thumbnailSrcset(task.image)" sizes="48px" alt="" loading="lazy" decoding="async" />
             <strong>{{ task.title }}</strong>
           </span>
         </component>

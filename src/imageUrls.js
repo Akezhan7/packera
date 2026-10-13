@@ -1,8 +1,8 @@
-const uploadedImage = /^\/products\/upload_[a-z0-9]+_\d+\.(?:jpe?g|png)$/i;
+const uploadedImage = /^\/products\/upload_[a-z0-9]+_\d+\.(?:jpe?g|png|svg)$/i;
 
 const isStaticHero = image => image === '/Artboard 1.png' || image === '/Artboard%201.png';
 
-// Remote images, SVGs and icons keep their existing URLs and rendering.
+// Remote images and bundled icons keep their existing URLs and rendering.
 export function thumbnailUrl(image, width) {
   if (isStaticHero(image)) return `/products/hero-banner?w=${width}&format=webp`;
   if (!uploadedImage.test(image || '')) return image;
