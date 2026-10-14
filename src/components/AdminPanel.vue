@@ -601,7 +601,7 @@ const moveSizeRowDown = (idx) => {
 };
 
 // Image Upload Helper
-const resizeAndConvertImage = (file, maxDim = 800) => {
+const resizeAndConvertImage = (file, maxDim = 800, widthOnly = false) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -615,7 +615,10 @@ const resizeAndConvertImage = (file, maxDim = 800) => {
         let width = img.width;
         let height = img.height;
         
-        if (width > maxDim || height > maxDim) {
+        if (widthOnly && width > maxDim) {
+          height = Math.max(1, Math.round((height * maxDim) / width));
+          width = maxDim;
+        } else if (!widthOnly && (width > maxDim || height > maxDim)) {
           if (width > height) {
             height = Math.round((height * maxDim) / width);
             width = maxDim;
@@ -642,9 +645,9 @@ const resizeAndConvertImage = (file, maxDim = 800) => {
   });
 };
 
-const prepareImageUpload = async (file, maxDim = 800) => {
+const prepareImageUpload = async (file, maxDim = 800, widthOnly = false) => {
   uploadBusy.value++;
-  try { return await uploadImageToServer(await resizeAndConvertImage(file,maxDim),file.name); }
+  try { return await uploadImageToServer(await resizeAndConvertImage(file,maxDim,widthOnly),file.name); }
   finally { uploadBusy.value--; }
 };
 

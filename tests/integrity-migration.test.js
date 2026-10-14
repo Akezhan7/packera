@@ -3,6 +3,32 @@ import { test } from 'node:test';
 import { startTestServer } from './helpers/test-server.js';
 import { migrateIntegrity } from '../server/content.js';
 
+test('banner upgrade preserves images and updates default hero copy only once', async () => {
+  const server = await startTestServer();
+  try {
+    await server.query('ALTER TABLE banners DROP COLUMN "infoImage"');
+    await server.query("DELETE FROM schema_migrations WHERE version='005-banner-info'");
+    const hero = {image:'/custom.jpg',mobileImage:'/custom-mobile.jpg',title:'Всё для переезда и упаковки в одном месте',titleKk:'Old',actionType:'none',actionTarget:''};
+    await server.query("UPDATE site_settings SET value=$1 WHERE key='hero'", [JSON.stringify(hero)]);
+    const before = (await server.query("SELECT version FROM site_settings WHERE key='hero'")).rows[0];
+    await server.query("INSERT INTO banners(id,image) VALUES ('upgrade-info','/existing.jpg')");
+    await migrateIntegrity(server.pool);
+    const upgraded = (await server.query("SELECT * FROM site_settings WHERE key='hero'")).rows[0];
+    const value = JSON.parse(upgraded.value);
+    assert.equal(value.image,hero.image);
+    assert.equal(value.mobileImage,hero.mobileImage);
+    assert.equal(value.title,'Всё для переезда, упаковки и ремонта');
+    assert.equal(value.buttonText,'Выбрать задачу');
+    assert.equal(value.actionTarget,'#tasks-wizard-section');
+    assert.ok(upgraded.version > before.version);
+    const banner = (await server.query("SELECT * FROM banners WHERE id='upgrade-info'")).rows[0];
+    assert.equal(banner.image,'/existing.jpg');
+    assert.equal(banner.infoImage,'');
+    await migrateIntegrity(server.pool);
+    assert.deepEqual((await server.query("SELECT * FROM site_settings WHERE key='hero'")).rows[0], upgraded);
+  } finally { await server.close(); }
+});
+
 test('migration on handover dump preserves every original field and is repeatable', async () => {
   const server = await startTestServer({restoreDump:true});
   try {

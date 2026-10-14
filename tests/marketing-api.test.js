@@ -41,6 +41,23 @@ describe('Marketing settings and addressed writes', {concurrency:false}, () => {
     assert.equal(row.version,banner.version);
     assert.equal(row.actionType,'none');
   });
+  test('information picture persists, protects versions and can be replaced with a text window', async () => {
+    const created = await createBanner({actionType:'info',infoImage:'/products/conditions.webp'});
+    assert.equal(created.status,201,JSON.stringify(created.body));
+    const banner = created.body.data;
+    assert.equal((await server.request('/api/data')).body.banners.find(b=>b.id===banner.id).infoImage, '/products/conditions.webp');
+    assert.equal((await call(`/api/banners/${banner.id}`,'PATCH',{version:banner.version,changes:{infoImage:''}})).status,400);
+    const updated = await call(`/api/banners/${banner.id}`,'PATCH',{version:banner.version,changes:{infoImage:'/products/new-conditions.webp'}});
+    assert.equal(updated.status,200,JSON.stringify(updated.body));
+    assert.equal((await call(`/api/banners/${banner.id}`,'PATCH',{version:banner.version,changes:{infoImage:'/old.webp'}})).status,409);
+    const textWindow = await call(`/api/banners/${banner.id}`,'PATCH',{version:updated.body.data.version,changes:{infoImage:'',title:'Акция',titleKk:'Науқан',description:'Условия',descriptionKk:'Шарттар'}});
+    assert.equal(textWindow.status,200,JSON.stringify(textWindow.body));
+    await migrateIntegrity(server.pool);
+    const stored = (await server.request('/api/data')).body.banners.find(b=>b.id===banner.id);
+    assert.equal(stored.infoImage,'');
+    assert.equal(stored.description,'Условия');
+    assert.equal(stored.version,textWindow.body.data.version);
+  });
   test('hero is editable independently and settings retain version conflict protection', async () => {
     const snapshot=(await server.request('/api/data')).body;
     assert.equal(typeof snapshot.siteSettings.hero,'object');

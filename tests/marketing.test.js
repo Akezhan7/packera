@@ -36,3 +36,13 @@ test('optional banner copy still requires both translations when provided', () =
   assert.ok(marketing.validateMarketingRecord({image:'/banner.jpg',title:'Акция',actionType:'none'}));
   assert.equal(marketing.validateMarketingRecord({image:'/banner.jpg',title:'Акция',titleKk:'Науқан',actionType:'none'}), '');
 });
+
+test('information picture supports image-only windows while validating links and translations', () => {
+  const banner = {image:'/banner.jpg',actionType:'info',infoImage:'/products/conditions.webp'};
+  assert.equal(marketing.validateMarketingRecord(banner), '');
+  assert.ok(marketing.validateMarketingRecord({...banner,title:'Акция'}));
+  for (const infoImage of ['javascript:alert(1)', '//example.com/image.png', '#tasks']) {
+    assert.ok(marketing.validateMarketingRecord({...banner,infoImage}));
+  }
+  assert.ok(marketing.validateMarketingRecord({...banner,infoImage:''}));
+});

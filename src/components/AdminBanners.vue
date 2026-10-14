@@ -105,7 +105,7 @@ async function upload(event, field) {
   uploading.value = true;
   message.value = '';
   try {
-    draft.value[field] = await props.uploadImage(file, field === 'image' ? 1920 : 1200);
+    draft.value[field] = await props.uploadImage(file, field === 'mobileImage' ? 1200 : 1920, field === 'infoImage');
     if(field === 'image') commonImageChanged();
   }
   catch(error) { message.value = error.message; }
@@ -181,12 +181,20 @@ const remove = banner => { if(confirm('Удалить баннер?')) return pr
             <p class="editor-hint">Для главного блока подходит фото без встроенных надписей. Для промоленты используйте горизонтальный баннер примерно 2,2:1: изображение заполняет всю область, края могут обрезаться.</p>
             <div class="editor-columns">
               <div v-for="([suffix,lang]) in [['','RU'],['Kk','KK']]" :key="lang">
-                <div class="form-group"><label class="form-label" :for="`marketing-title-${lang}`">Заголовок ({{ lang }})</label><input :id="`marketing-title-${lang}`" v-model="draft[`title${suffix}`]" class="form-control" :required="mode==='hero' || draft.actionType==='info'" /></div>
-                <div class="form-group"><label class="form-label" :for="`marketing-description-${lang}`">{{ draft.actionType==='info' ? 'Информация в окне' : 'Описание' }} ({{ lang }})</label><textarea :id="`marketing-description-${lang}`" v-model="draft[`description${suffix}`]" class="form-control" rows="3" :required="draft.actionType==='info'"></textarea></div>
+                <div class="form-group"><label class="form-label" :for="`marketing-title-${lang}`">Заголовок ({{ lang }})</label><input :id="`marketing-title-${lang}`" v-model="draft[`title${suffix}`]" class="form-control" :required="mode==='hero' || (draft.actionType==='info' && !draft.infoImage)" /></div>
+                <div class="form-group"><label class="form-label" :for="`marketing-description-${lang}`">{{ draft.actionType==='info' ? 'Информация в окне' : 'Описание' }} ({{ lang }})</label><textarea :id="`marketing-description-${lang}`" v-model="draft[`description${suffix}`]" class="form-control" rows="3" :required="draft.actionType==='info' && !draft.infoImage"></textarea></div>
                 <div v-if="mode==='hero'" class="form-group"><label class="form-label" :for="`marketing-button-${lang}`">Текст кнопки ({{ lang }})</label><input :id="`marketing-button-${lang}`" v-model="draft[`buttonText${suffix}`]" class="form-control" :required="draft.actionType!=='none'" /></div>
               </div>
             </div>
             <div class="form-group"><label class="form-label" for="marketing-action">Действие при нажатии</label><select id="marketing-action" v-model="draft.actionType" class="form-control" @change="changeAction"><option v-for="([value,label]) in actions" :key="value" :value="value">{{ label }}</option></select></div>
+            <div v-if="mode==='banner' && draft.actionType==='info'" class="form-group">
+              <label class="form-label" for="marketing-info-upload">Картинка с подробными условиями · необязательно</label>
+              <input id="marketing-info-upload" type="file" accept="image/*" @change="upload($event,'infoImage')" />
+              <input v-model="draft.infoImage" class="form-control image-link" aria-label="Ссылка на картинку условий" placeholder="Или вставьте ссылку на картинку условий" />
+              <p class="editor-hint">Открывается при нажатии на баннер целиком, без обрезки. Можно загрузить длинную картинку и оставить тексты пустыми. Одна картинка используется на обоих устройствах и языках; надписи на ней не переводятся автоматически.</p>
+              <img v-if="draft.infoImage" :src="draft.infoImage" class="info-image-preview" alt="Картинка условий" />
+              <button v-if="draft.infoImage" type="button" class="btn btn-secondary" @click="draft.infoImage=''">Убрать картинку условий</button>
+            </div>
             <div v-if="destinations.includes(draft.actionType)" class="form-group"><label class="form-label" for="marketing-target">Место перехода</label><select id="marketing-target" v-model="draft.actionTarget" class="form-control" required><option value="" disabled>Выберите из списка</option><option v-for="item in options" :key="item.id" :value="item.id">{{ item.title }}</option></select></div>
             <div v-if="draft.actionType==='link'" class="form-group"><label class="form-label" for="marketing-link">Внутренний путь или ссылка http/https</label><input id="marketing-link" v-model="draft.actionTarget" class="form-control" required placeholder="https://… или /… или #…" /></div>
             <div v-if="mode==='banner'" class="editor-columns">
@@ -235,8 +243,9 @@ const remove = banner => { if(confirm('Удалить баннер?')) return pr
 .image-previews { display:grid; grid-template-columns:1.4fr 1fr; gap:16px; margin:16px 0; }
 .image-previews figure { margin:0; min-width:0; }
 .image-previews img { display:block; width:100%; aspect-ratio:2.2/1; object-fit:cover; border-radius:10px; }
-.hero-previews img { aspect-ratio:2.3/1; object-position:65% 50%; }
-.hero-previews figure:last-child img { aspect-ratio:1.5/1; object-position:72% 50%; }
+.hero-previews img { aspect-ratio:4.8/1; object-position:65% 50%; }
+.hero-previews figure:last-child img { aspect-ratio:2.8/1; object-position:72% 50%; }
+.info-image-preview { display:block; max-width:100%; height:auto; margin:12px 0; }
 .image-previews figcaption { margin-top:6px; color:var(--text-muted); font-size:12px; }
 .publication-options { display:flex; flex-direction:column; gap:12px; padding-top:6px; }
 .editor-columns { display:grid; grid-template-columns:1fr 1fr; gap:16px; }

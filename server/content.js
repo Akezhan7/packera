@@ -7,7 +7,7 @@ const definitions = {
   products: { table: 'products', key: 'id', fields: ['title','desc','price','unit','category','visual','color','image','images','tasks','sizes','specs','kaspiLink','halykLink','forteLink','sortOrder','categorySortOrder','taskSortOrders','isVisible'], defaults: { desc:'', price:0, unit:'шт', category:'', visual:'box', color:'', image:'', images:[], tasks:{}, sizes:[], specs:{}, kaspiLink:'', halykLink:'', forteLink:'', sortOrder:0, categorySortOrder:0, taskSortOrders:{}, isVisible:true } },
   categories: { table: 'categories', key: 'id', fields: ['name','icon','sortOrder'], defaults: { icon:'', sortOrder:0 } },
   tasks: { table: 'tasks', key: 'id', fields: ['title','desc','titleKk','descKk','icon','image','desktopImage','mobileImage','sortOrder'], defaults: { desc:'', titleKk:'', descKk:'', icon:'box', image:'', desktopImage:'', mobileImage:'', sortOrder:0 } },
-  banners: { table: 'banners', key: 'id', fields: bannerFields, defaults: { mobileImage:'', title:'', titleKk:'', description:'', descriptionKk:'', actionType:'none', actionTarget:'', startsAt:'', endsAt:'', isActive:true, sortOrder:0 } },
+  banners: { table: 'banners', key: 'id', fields: bannerFields, defaults: { mobileImage:'', infoImage:'', title:'', titleKk:'', description:'', descriptionKk:'', actionType:'none', actionTarget:'', startsAt:'', endsAt:'', isActive:true, sortOrder:0 } },
   settings: { table: 'site_settings', key: 'key', fields: ['value'], defaults: {} },
 };
 const jsonFields = new Set(['images','tasks','sizes','specs','taskSortOrders']);
@@ -21,7 +21,7 @@ export async function migrateIntegrity(pool) {
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(741902001)');
-    for (const version of ['002-integrity','003-task-order','004-marketing']) {
+    for (const version of ['002-integrity','003-task-order','004-marketing','005-banner-info']) {
       const exists = await client.query('SELECT version FROM schema_migrations WHERE version = $1', [version]);
       if (!exists.rowCount) {
         const sql = await readFile(new URL(`./migrations/${version}.sql`, import.meta.url), 'utf8');
