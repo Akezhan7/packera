@@ -50,13 +50,15 @@ test('real Vue SSR renders public content, correct variant prices and request-is
   assert.match(kk, /href="\/kk\/"/);
   assert.match(kk, /href="\/tasks\/id-move"[^>]*>\s*RU/);
   const kkHome = await render('/kk/',bilingual,1000);
-  assert.match(kkHome, /<h1[^>]*>Көшуге арналған қаптама<\/h1>/);
+  assert.match(kkHome, /<h1[^>]*>Көшуге және жөндеуге арналған қаптама материалдары<\/h1>/);
+  assert.equal((kkHome.match(/<h1\b/g) || []).length, 1);
+  assert.doesNotMatch(kkHome, /main-banner-copy/);
   assert.match(kkHome, /href="\/kk\/tasks\/id-move"/);
   assert.match(kkHome, /href="\/product\/id-box"/);
   assert.doesNotMatch(kkHome, /href="\/kk\/(?:product|catalog)\//);
-  assert.match(home, /\+7 707 944 00 55/);
-  assert.match(home, /href="tel:\+77079440055"/);
-  assert.match(home, /href="https:\/\/wa.me\/77079440055"/);
+  assert.match(home, /\+7 701 162 3491/);
+  assert.match(home, /href="tel:\+77011623491"/);
+  assert.match(home, /href="https:\/\/wa.me\/77011623491"/);
   assert.match(home, /Ратушного, 78в/);
   assert.match(home, /Вторник — воскресенье/);
   assert.match(home, /Доставка по всему Казахстану/);
@@ -64,7 +66,7 @@ test('real Vue SSR renders public content, correct variant prices and request-is
   assert.match(home, /Рассрочка: Kaspi, Halyk, Forte/);
   assert.match(kkHome, /Сейсенбі — жексенбі/);
   assert.match(kkHome, /Қазақстан бойынша жеткізу/);
-  assert.doesNotMatch(home, /944 00 77|Кабдолова|Алатауский район|9:00 - 21:00/);
+  assert.doesNotMatch(home, /77079440055|707 944 00 55|944 00 77|Кабдолова|Алатауский район|9:00 - 21:00/);
 
   const data = await vite.ssrLoadModule('/src/data.js');
   const previousProducts = [...data.products];

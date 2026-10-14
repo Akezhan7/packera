@@ -321,7 +321,7 @@ onUnmounted(() => {
         <button v-if="routeStatus === 'error'" class="btn btn-primary" @click="retryCatalog">{{ t('retryLoading') }}</button>
       </main>
       <template v-else>
-      <Hero v-if="route.kind === 'home'" @action="handleBannerAction" />
+      <Hero v-if="route.kind === 'home'" />
       <BannerSlider v-if="route.kind === 'home'" @action="handleBannerAction" />
       <div v-if="route.kind !== 'home'" class="public-page-heading container">
         <nav :aria-label="t('pageNavigation')"><a :href="homeUrl">{{ t('homePage') }}</a><template v-if="productCategory"> / <a :href="publicPath('category', productCategory.id)">{{ translateCategory(productCategory.name) }}</a></template></nav>

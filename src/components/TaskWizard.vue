@@ -157,7 +157,8 @@ const handleAddToCart = (product) => {
 <template>
   <section v-if="!hideSelector" class="task-selector" id="tasks-wizard-section">
     <div class="container">
-      <h2 class="task-section-title">{{ t('selectTask') }}</h2>
+      <h1 class="task-section-title store-heading">{{ t('storeHeading') }}</h1>
+      <p class="task-section-prompt">{{ t('selectTask') }}</p>
       
       <!-- Task Selection Grid -->
       <div class="task-choice-grid">
@@ -325,6 +326,8 @@ const handleAddToCart = (product) => {
 /* Keep these category tiles independent of the legacy card styles. */
 #tasks-wizard-section.task-selector { padding:32px 0 28px; background:var(--bg-paper) !important; }
 .task-section-title { margin:0 0 20px; font-family:var(--font-body); font-size:26px; font-weight:600; letter-spacing:-.035em; line-height:1.2; }
+.task-section-title.store-heading { margin-bottom:8px; font-size:22px; line-height:1.35; }
+.task-section-prompt { margin:0 0 18px; font-size:14px; color:var(--text-lead); }
 .task-choice-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:16px; }
 .task-choice { display:flex; flex-direction:column; gap:12px; min-width:0; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; text-align:left; color:var(--text-ink); cursor:pointer; font:inherit; }
 .task-choice-media { position:relative; display:grid; place-items:center; width:100%; aspect-ratio:4/3; overflow:hidden; border-radius:12px; background:var(--bg-soft); }
@@ -342,6 +345,7 @@ const handleAddToCart = (product) => {
 @media(max-width:767px) {
   #tasks-wizard-section.task-selector { padding:24px 0; }
   .task-section-title { font-size:22px; margin-bottom:16px; }
+  .task-section-title.store-heading { font-size:18px; }
   .task-choice-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
   .task-choice { position:relative; gap:0; width:100%; max-width:100%; aspect-ratio:3.2/1; min-height:64px; overflow:hidden; border-radius:12px; background:var(--bg-soft); }
   .task-choice-media, .task-choice-name { display:none; }

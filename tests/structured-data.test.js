@@ -35,7 +35,7 @@ test('breadcrumb and store data use public navigation and safely serialized real
   assert.deepEqual(breadcrumb.itemListElement.map(item => item.item), ['https://packera.kz/','https://packera.kz/catalog/id-boxes','https://packera.kz/product/id-box']);
   const store = graph.find(item => item['@type'] === 'Organization');
   assert.equal(store.name, 'Packera.kz');
-  assert.equal(store.telephone, '+77079440055');
+  assert.equal(store.telephone, '+77011623491');
   assert.deepEqual(store.address, {'@type':'PostalAddress',addressLocality:'Алматы',streetAddress:'ул. Ратушного, 78в',addressCountry:'KZ'});
   assert.deepEqual(store.areaServed, {'@type':'Country',name:'Kazakhstan'});
   assert.match(store.description, /70\s000/);
