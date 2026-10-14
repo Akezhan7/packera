@@ -190,7 +190,7 @@ const remove = banner => { if(confirm('Удалить баннер?')) return pr
               <label class="form-label" for="marketing-info-upload">Картинка с подробными условиями · необязательно</label>
               <input id="marketing-info-upload" type="file" accept="image/*" @change="upload($event,'infoImage')" />
               <input v-model="draft.infoImage" class="form-control image-link" aria-label="Ссылка на картинку условий" placeholder="Или вставьте ссылку на картинку условий" />
-              <p class="editor-hint">Открывается при нажатии на баннер целиком, без обрезки. Можно загрузить длинную картинку и оставить тексты пустыми. Одна картинка используется на обоих устройствах и языках; надписи на ней не переводятся автоматически.</p>
+              <p class="editor-hint">При нажатии открывается только картинка и крестик закрытия, без рамки и наложенного текста. Можно загрузить длинную картинку. Заголовок и описание в таком окне не выводятся. Одна картинка используется на обоих устройствах и языках; надписи на ней не переводятся автоматически.</p>
               <img v-if="draft.infoImage" :src="draft.infoImage" class="info-image-preview" alt="Картинка условий" />
               <button v-if="draft.infoImage" type="button" class="btn btn-secondary" @click="draft.infoImage=''">Убрать картинку условий</button>
             </div>

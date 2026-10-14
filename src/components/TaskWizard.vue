@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, nextTick, watch } from 'vue';
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue';
 import { getProductImages } from '../../shared/productImages.js';
 import { thumbnailUrl, thumbnailSrcset } from '../imageUrls.js';
 import { compareTaskProducts } from '../taskSorting.js';
@@ -21,6 +21,35 @@ const emit = defineEmits(['add-to-cart', 'open-gallery', 'open-installment']);
 
 const activeTaskId = ref('move');
 const activeLevel = ref(1);
+const headerHeight = ref(0);
+const priorityNavigation = ref(null);
+const recommendationsGrid = ref(null);
+let headerObserver;
+
+onMounted(() => {
+  const header = document.querySelector('.topbar');
+  if (!header) return;
+  const measureHeader = () => { headerHeight.value = header.getBoundingClientRect().height; };
+  measureHeader();
+  headerObserver = new ResizeObserver(measureHeader);
+  headerObserver.observe(header);
+});
+onUnmounted(() => { headerObserver?.disconnect(); });
+
+async function selectPriority(level) {
+  if (activeLevel.value === level) return;
+  const mobile = window.matchMedia('(max-width:767px)').matches;
+  const listTop = mobile && recommendationsGrid.value
+    ? window.scrollY + recommendationsGrid.value.getBoundingClientRect().top
+    : null;
+  activeLevel.value = level;
+  if (listTop === null) return;
+  await nextTick();
+  window.scrollTo({
+    top:Math.max(0, listTop - headerHeight.value - priorityNavigation.value.offsetHeight),
+    behavior:window.matchMedia('(prefers-reduced-motion:reduce)').matches ? 'auto' : 'smooth',
+  });
+}
 
 const translatedTasks = computed(() => {
   return tasks.map(tk => translateTask(tk));
@@ -192,7 +221,7 @@ const handleAddToCart = (product) => {
   </section>
 
   <!-- Suggested Items Section -->
-  <section class="recommendations-section" id="recommendations-section">
+  <section class="recommendations-section" id="recommendations-section" :style="{'--recommendations-top':`${headerHeight}px`}">
     <div class="container">
       <div class="task-panel" style="margin-top: 0;">
         <div class="panel-head">
@@ -202,20 +231,24 @@ const handleAddToCart = (product) => {
           </div>
           
           <!-- Priority Tabs -->
-          <div class="tabs-wrapper">
+          <div ref="priorityNavigation" class="priority-navigation">
+          <div class="tabs-wrapper" role="group" :aria-label="t('recommendations')">
             <button 
               v-for="tab in priorityLevels" 
               :key="tab.level"
-              @click="activeLevel = tab.level"
+              type="button"
+              @click="selectPriority(tab.level)"
+              :aria-pressed="activeLevel === tab.level"
               :class="['tab-btn', { active: activeLevel === tab.level }]"
             >
               {{ tab.label }}
             </button>
           </div>
+          </div>
         </div>
 
         <!-- Products Grid -->
-        <div class="products-grid">
+        <div ref="recommendationsGrid" class="products-grid">
           <article 
             v-for="product in filteredProducts" 
             :key="product.id"
@@ -323,6 +356,8 @@ const handleAddToCart = (product) => {
 </template>
 
 <style scoped>
+.priority-navigation { display:contents; }
+.priority-navigation .tab-btn.active { background:var(--success); color:#fff; }
 /* Keep these category tiles independent of the legacy card styles. */
 #tasks-wizard-section.task-selector { padding:32px 0 28px; background:var(--bg-paper) !important; }
 .task-section-title { margin:0 0 20px; font-family:var(--font-body); font-size:26px; font-weight:600; letter-spacing:-.035em; line-height:1.2; }
@@ -343,6 +378,13 @@ const handleAddToCart = (product) => {
 @media(hover:hover) { .task-choice:hover .task-choice-media img { transform:scale(1.035); } }
 @media(max-width:1024px) { .task-choice-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media(max-width:767px) {
+  .recommendations-section .task-panel { overflow:visible; }
+  .recommendations-section .panel-head { display:contents; }
+  .recommendations-section .panel-head-info { padding:16px 16px 8px; border-radius:var(--radius-lg) var(--radius-lg) 0 0; background:var(--bg-soft); }
+  .priority-navigation { display:block; position:sticky; top:var(--recommendations-top); z-index:20; padding:8px 12px; background:var(--bg-paper); border-bottom:1px solid var(--border-line); }
+  .priority-navigation .tabs-wrapper { width:100%; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); overflow:visible; }
+  .priority-navigation .tab-btn { min-width:0; height:auto; min-height:38px; padding:8px 4px; font-size:12px; white-space:normal; line-height:1.25; }
+  .priority-navigation .tab-btn:focus-visible { outline:2px solid var(--text-ink); outline-offset:2px; }
   #tasks-wizard-section.task-selector { padding:24px 0; }
   .task-section-title { font-size:22px; margin-bottom:16px; }
   .task-section-title.store-heading { font-size:18px; }
