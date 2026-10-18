@@ -373,6 +373,7 @@ onUnmounted(() => {
       <GalleryModal 
         :productId="galleryProductId"
         :selectedSize="gallerySelectedSize"
+        @add-to-cart="handleAddToCart"
         @close="handleCloseGallery"
       />
 

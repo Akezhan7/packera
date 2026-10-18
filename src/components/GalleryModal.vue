@@ -14,7 +14,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'add-to-cart']);
 
 const product = ref(null);
 const currentIndex = ref(0);
@@ -24,8 +24,9 @@ const imageSelectedSize = ref('');
 watch(() => [props.productId, props.selectedSize], () => {
   if (props.productId) {
     product.value = products.find(p => p.id === props.productId) || null;
-    currentSelectedSize.value = props.selectedSize || (product.value?.sizes?.[0]?.size || '');
-    imageSelectedSize.value = props.selectedSize || '';
+    const selected = product.value?.sizes?.find(size => size.size === props.selectedSize);
+    currentSelectedSize.value = selected?.size || (product.value?.sizes?.[0]?.size || '');
+    imageSelectedSize.value = selected?.size || '';
     currentIndex.value = 0;
     document.body.classList.add('modal-open');
   } else {
@@ -49,6 +50,13 @@ const selectSizeInModal = (sizeName) => {
   currentSelectedSize.value = sizeName;
   imageSelectedSize.value = sizeName;
   currentIndex.value = 0;
+};
+
+const buyProduct = () => {
+  if (!product.value) return;
+  const cartKey = `${product.value.id}::${currentSelectedSize.value}`;
+  emit('add-to-cart', cartKey, 1);
+  emit('close');
 };
 
 const images = computed(() => getProductImages(product.value,imageSelectedSize.value));
@@ -104,10 +112,14 @@ onUnmounted(() => {
   <div 
     v-if="productId !== null" 
     class="gallery-modal-overlay open"
+    role="dialog"
+    aria-modal="true"
+    :aria-label="product?.title || t('image')"
     @click.self="emit('close')"
   >
     <!-- Close -->
     <button 
+      type="button"
       @click="emit('close')" 
       class="gallery-modal-close" 
       :aria-label="t('close')"
@@ -169,6 +181,11 @@ onUnmounted(() => {
           {{ s.size }}
         </button>
       </div>
+
+      <button v-if="product" type="button" class="btn btn-primary gallery-buy" @click="buyProduct">
+        <span v-html="icons.cart" aria-hidden="true"></span>
+        {{ t('buy') }}
+      </button>
       
       <p v-if="product?.desc" class="gallery-desc">
         {{ product.desc }}
@@ -207,7 +224,23 @@ onUnmounted(() => {
 }
 .gallery-modal-overlay {
   transition: opacity 0.25s ease, visibility 0.25s ease;
+  background-color:rgba(15,23,32,.76);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  justify-content:flex-start;
+  padding:72px 16px 24px;
 }
+.gallery-slide-wrap { flex-shrink:0; margin-top:auto; width:min(100%,900px); }
+.gallery-info-overlay, .gallery-thumbnails-strip { flex-shrink:0; }
+.gallery-info-overlay { width:100%; }
+.gallery-thumbnails-strip { max-width:100%; }
+.gallery-info-overlay:last-child, .gallery-thumbnails-strip:last-child { margin-bottom:auto; }
+.gallery-modal-close { position:fixed; top:max(12px,env(safe-area-inset-top)); right:max(12px,env(safe-area-inset-right)); background:#16181c; color:#fff; border:2px solid #fff; box-shadow:0 2px 12px rgba(0,0,0,.25); }
+.gallery-modal-close:hover { background:#303641; }
+.gallery-modal-close:focus-visible { outline:2px solid #fff; outline-offset:4px; }
+.gallery-buy { min-width:160px; margin:6px 0 10px; }
 
 .gallery-info-overlay {
   text-align: center;
