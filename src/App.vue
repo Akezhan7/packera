@@ -213,8 +213,16 @@ function navigate(href, { replace = false, scroll = true } = {}) {
 function navigateLink(event) {
   if (!isPlainNavigation(event)) return;
   const link = event.target.closest('a[href]');
-  if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
+  if (!link || link.hasAttribute('download')) return;
   const url = new URL(link.href);
+  if (!isAdminView.value && typeof window.gtag === 'function') {
+    const contact_location = link.closest('header') ? 'header' : link.closest('footer') ? 'footer' : 'content';
+    if (url.protocol === 'tel:') window.gtag('event', 'phone_click', { contact_location });
+    else if (['https:', 'http:'].includes(url.protocol) && ['wa.me', 'api.whatsapp.com'].includes(url.hostname)) {
+      window.gtag('event', 'whatsapp_click', { contact_location });
+    }
+  }
+  if (link.target && link.target !== '_self') return;
   if (url.origin !== window.location.origin || url.hash || parsePublicRoute(url.pathname + url.search).kind === 'missing') return;
   event.preventDefault();
   navigate(url.pathname + url.search);

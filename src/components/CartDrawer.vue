@@ -114,6 +114,7 @@ const triggerWhatsAppOrder = () => {
   const formattedMsg = encodeURIComponent(lines.join("\n"));
   const waUrl = `https://api.whatsapp.com/send/?phone=${PHONE}&text=${formattedMsg}&type=phone_number&app_absent=0`;
   
+  if (typeof window.gtag === 'function') window.gtag('event', 'whatsapp_checkout');
   window.open(waUrl, '_blank', 'noopener,noreferrer');
 };
 </script>
