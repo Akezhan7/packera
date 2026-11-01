@@ -56,9 +56,9 @@ test('real Vue SSR renders public content, correct variant prices and request-is
   assert.match(kkHome, /href="\/kk\/tasks\/id-move"/);
   assert.match(kkHome, /href="\/product\/id-box"/);
   assert.doesNotMatch(kkHome, /href="\/kk\/(?:product|catalog)\//);
-  assert.match(home, /\+7 701 162 3491/);
-  assert.match(home, /href="tel:\+77011623491"/);
-  assert.match(home, /href="https:\/\/wa.me\/77011623491"/);
+  assert.match(home, /\+7 702 322 99 06/);
+  assert.match(home, /href="tel:\+77023229906"/);
+  assert.match(home, /href="https:\/\/wa.me\/77023229906"/);
   assert.match(home, /Ратушного, 78в/);
   assert.match(home, /Вторник — воскресенье/);
   assert.match(home, /Доставка по всему Казахстану/);
