@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { useStorefrontData } from '../storefrontData.js';
 import { isPlainNavigation } from '../../shared/publicRoutes.js';
-const { icons, PHONE, FORMATTED_PHONE, currentLang, setLang, t } = useStorefrontData();
+const { icons, PHONE, FORMATTED_PHONE, WHATSAPP_PHONE, currentLang, setLang, t } = useStorefrontData();
 
 const props = defineProps({
   languageUrls: {type:Object,default:() => ({})},
@@ -48,7 +48,7 @@ function chooseLanguage(event, language) {
 
         <!-- Fast WhatsApp link -->
         <a 
-          :href="`https://wa.me/${PHONE}?text=${encodeURIComponent(currentLang === 'kk' ? 'Сәлеметсіз бе! Қаптама материалдары бойынша кеңес алғым келеді.' : 'Здравствуйте! Хочу получить консультацию по упаковочным материалам.')}`"
+          :href="`https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(currentLang === 'kk' ? 'Сәлеметсіз бе! Қаптама материалдары бойынша кеңес алғым келеді.' : 'Здравствуйте! Хочу получить консультацию по упаковочным материалам.')}`"
           target="_blank"
           rel="noreferrer"
           class="whatsapp-link"

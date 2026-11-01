@@ -1,6 +1,6 @@
 <script setup>
 import { useStorefrontData } from '../storefrontData.js';
-const { PHONE, FORMATTED_PHONE, icons, t } = useStorefrontData();
+const { PHONE, FORMATTED_PHONE, WHATSAPP_PHONE, FORMATTED_WHATSAPP_PHONE, icons, t } = useStorefrontData();
 </script>
 
 <template>
@@ -27,11 +27,11 @@ const { PHONE, FORMATTED_PHONE, icons, t } = useStorefrontData();
           <ul class="footer-links footer-contacts">
             <li>
               <span v-html="icons.phone" class="footer-contact-icon"></span>
-              <strong>{{ FORMATTED_PHONE }}</strong>
+              <a :href="`tel:+${PHONE}`" style="font-weight: 700;">{{ FORMATTED_PHONE }}</a>
             </li>
             <li>
               <img src="/whatsapp.png" alt="WhatsApp" class="footer-wa-icon" />
-              <a :href="`https://wa.me/${PHONE}`" target="_blank" rel="noreferrer" style="font-weight: 700;">{{ t('writeWhatsApp') }}</a>
+              <a :href="`https://wa.me/${WHATSAPP_PHONE}`" target="_blank" rel="noreferrer" style="font-weight: 700;">WhatsApp: {{ FORMATTED_WHATSAPP_PHONE }}</a>
             </li>
             <li>
               <span v-html="icons.clock" class="footer-contact-icon footer-contact-icon-muted"></span>

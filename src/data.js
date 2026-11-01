@@ -3,9 +3,9 @@ import { requestApi, saveContentOperations, resolvePendingContentSave } from './
 
 // Packerra.kz Upgraded Product & Task Data for Vue (ESM)
 
-import { PHONE, FORMATTED_PHONE, STORE_ADDRESS, DELIVERY_DESCRIPTION } from '../shared/storeContacts.js';
+import { PHONE, FORMATTED_PHONE, WHATSAPP_PHONE, FORMATTED_WHATSAPP_PHONE, STORE_ADDRESS, DELIVERY_DESCRIPTION } from '../shared/storeContacts.js';
 import { parsePublicRoute } from '../shared/publicRoutes.js';
-export { PHONE, FORMATTED_PHONE };
+export { PHONE, FORMATTED_PHONE, WHATSAPP_PHONE, FORMATTED_WHATSAPP_PHONE };
 const storeAddressRu = `${STORE_ADDRESS.addressLocality}, ${STORE_ADDRESS.streetAddress}`;
 const storeAddressKk = 'Алматы, Ратушного көшесі, 78в';
 const workDays = {ru:'Вторник — воскресенье',kk:'Сейсенбі — жексенбі'};

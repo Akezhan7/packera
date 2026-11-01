@@ -57,8 +57,14 @@ test('real Vue SSR renders public content, correct variant prices and request-is
   assert.match(kkHome, /href="\/product\/id-box"/);
   assert.doesNotMatch(kkHome, /href="\/kk\/(?:product|catalog)\//);
   assert.match(home, /\+7 702 322 99 06/);
-  assert.match(home, /href="tel:\+77023229906"/);
+  assert.match(home, /\+7 701 444 02 17/);
+  assert.match(home, /href="tel:\+77014440217"/);
   assert.match(home, /href="https:\/\/wa.me\/77023229906"/);
+  for (const html of [home, kkHome]) {
+    assert.doesNotMatch(html, /href="tel:\+77023229906"/);
+    assert.doesNotMatch(html, /href="https:\/\/wa.me\/77014440217/);
+    assert.match(html, /WhatsApp: \+7 702 322 99 06/);
+  }
   assert.match(home, /Ратушного, 78в/);
   assert.match(home, /Вторник — воскресенье/);
   assert.match(home, /Доставка по всему Казахстану/);
@@ -80,5 +86,33 @@ test('real Vue SSR renders public content, correct variant prices and request-is
     const threshold = await renderToString(createSSRApp(CartDrawer,{isOpen:true,cart}));
     assert.match(threshold, /Доставка по Алматы за наш счет/);
     assert.doesNotMatch(threshold, /До бесплатной доставки/);
+    const {default:InstallmentModal} = await vite.ssrLoadModule('/src/components/InstallmentModal.vue');
+    const previousWindow = globalThis.window;
+    const opened = [];
+    const events = [];
+    try {
+      globalThis.window = {open:url => opened.push(new URL(url)),gtag:(...args) => events.push(args)};
+      const checkout = {...CartDrawer,setup(props,context) {
+        const state = CartDrawer.setup(props,context);
+        state.triggerWhatsAppOrder();
+        return state;
+      }};
+      await renderToString(createSSRApp(checkout,{isOpen:true,cart}));
+      const installment = {...InstallmentModal,setup(props,context) {
+        const state = InstallmentModal.setup(props,context);
+        state.triggerWhatsAppInstallment();
+        return state;
+      }};
+      await renderToString(createSSRApp(installment,{productId:'shipping-test'}));
+      assert.equal(opened.length,2);
+      assert.equal(opened[0].hostname,'api.whatsapp.com');
+      assert.equal(opened[0].searchParams.get('phone'),'77023229906');
+      assert.equal(opened[1].hostname,'wa.me');
+      assert.equal(opened[1].pathname,'/77023229906');
+      assert.deepEqual(events,[['event','whatsapp_checkout']]);
+    } finally {
+      if (previousWindow === undefined) delete globalThis.window;
+      else globalThis.window = previousWindow;
+    }
   } finally { data.products.splice(0,data.products.length,...previousProducts); }
 });

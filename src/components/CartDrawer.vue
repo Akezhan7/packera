@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { products, PHONE, icons, currentLang, t, siteSettings } from '../data.js';
+import { products, WHATSAPP_PHONE, icons, currentLang, t, siteSettings } from '../data.js';
 import { FREE_SHIPPING_THRESHOLD } from '../../shared/storeContacts.js';
 
 const props = defineProps({
@@ -112,7 +112,7 @@ const triggerWhatsAppOrder = () => {
   ];
 
   const formattedMsg = encodeURIComponent(lines.join("\n"));
-  const waUrl = `https://api.whatsapp.com/send/?phone=${PHONE}&text=${formattedMsg}&type=phone_number&app_absent=0`;
+  const waUrl = `https://api.whatsapp.com/send/?phone=${WHATSAPP_PHONE}&text=${formattedMsg}&type=phone_number&app_absent=0`;
   
   if (typeof window.gtag === 'function') window.gtag('event', 'whatsapp_checkout');
   window.open(waUrl, '_blank', 'noopener,noreferrer');

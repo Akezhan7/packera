@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { products, PHONE, icons, t, currentLang } from '../data.js';
+import { products, WHATSAPP_PHONE, icons, t, currentLang } from '../data.js';
 
 const props = defineProps({
   productId: {
@@ -207,7 +207,7 @@ const triggerWhatsAppInstallment = () => {
   } else {
     msg = `Здравствуйте! Хочу оформить рассрочку в *${bankNameFormatted}* на *${term.value} мес.* на товар:\n*${product.value.title}${sizeText}* - ${qty.value}${product.value.unit ? ' ' + product.value.unit : ''} на сумму *${totalProductPrice.value.toLocaleString('ru-RU')} ₸*.\n(Ежемесячный платеж: ~ ${monthlyPayment.value.toLocaleString('ru-RU')} ₸/мес).`;
   }
-  const url = `https://wa.me/${PHONE}?text=${encodeURIComponent(msg)}`;
+  const url = `https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank', 'noopener,noreferrer');
   emit('close');
 };
